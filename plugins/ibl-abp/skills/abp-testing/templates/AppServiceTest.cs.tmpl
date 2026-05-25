@@ -32,6 +32,22 @@ public class {{ENTITY_NAME}}AppService_Tests : {{PROJECT_NAME}}ApplicationTestBa
     }
 
     [Fact]
+    public async Task Should_Get_List_With_All_Filters()
+    {
+        // TODO: create matching and non-matching records.
+        // Populate every supported filter on Get{{FEATURE_PLURAL}}Input so
+        // ApplyFilters / ApplyBaseFilters branches are covered together.
+        var result = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input
+            {
+                // TODO: filter = ..., status = ..., dateFrom = ..., etc.
+            });
+
+        result.ShouldNotBeNull();
+        // TODO: assert matching rows are present and non-matching rows absent.
+    }
+
+    [Fact]
     public async Task Should_Get_{{ENTITY_NAME}}()
     {
         var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(

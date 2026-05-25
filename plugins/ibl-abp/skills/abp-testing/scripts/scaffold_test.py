@@ -3,8 +3,8 @@ scaffold_test.py — Generate an integration test skeleton for an ABP AppService
 
 Reads an existing I{Entity}AppService.cs (or accepts the entity name directly)
 and emits a test file under the appropriate test project. The baseline CRUD
-tests (list / get / create / update / delete / validation) are always included;
-lifecycle/multitenancy/bulk test blocks are emitted based on flags or
+tests (list / get / create / update / delete / validation / filters) are always
+included; lifecycle/multitenancy/bulk test blocks are emitted based on flags or
 auto-detected from the AppService.
 
 Usage:

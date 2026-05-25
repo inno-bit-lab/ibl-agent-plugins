@@ -1,6 +1,6 @@
 ---
 name: abp-testing
-description: 'Integration testing patterns for ABP Framework projects: ApplicationTestBase, DomainTestBase, Shouldly, AAA, IDataSeedContributor test data, AddAlwaysAllowAuthorization, NSubstitute for external dependencies, CurrentUser.Change, CurrentTenant.Change, CRUD AppService tests, lifecycle/state-machine tests, multi-tenancy isolation, and bulk-operation tests. Use to write or scaffold tests for ABP AppServices, DomainServices, repositories, permissions, per-user behavior, tenant behavior, lifecycle transitions, or bulk operations.'
+description: 'Integration testing patterns for ABP Framework projects: ApplicationTestBase, DomainTestBase, Shouldly, AAA, IDataSeedContributor test data, AddAlwaysAllowAuthorization, NSubstitute for external dependencies, CurrentUser.Change, CurrentTenant.Change, CRUD AppService tests, ApplyFilters coverage, lifecycle/state-machine tests, multi-tenancy isolation, bulk-operation tests, and MongoDB coverlet coverage hangs. Use to write or scaffold tests for ABP AppServices, DomainServices, repositories, permissions, per-user behavior, tenant behavior, lifecycle transitions, bulk operations, or backend coverage.'
 ---
 
 # ABP Testing
@@ -89,6 +89,8 @@ with a standard CRUD **baseline** always included:
 4. `Should_Update_{Entity}` — update at least one editable field.
 5. `Should_Delete_{Entity}` — delete and verify the row no longer appears.
 6. `Should_Throw_Validation_For_Invalid_Input` — `AbpValidationException` path.
+7. `Should_Get_List_With_All_Filters` — exercise every supported list filter
+   branch in `ApplyFilters` / `ApplyBaseFilters`.
 
 Add focused tests for any entity-specific business rules:
 - permission behavior when permission enforcement is part of the feature
@@ -267,6 +269,47 @@ ex.Code.ShouldContain("InvalidStatusTransition");
    bulk delete sets `IsDeleted = true` and a fresh `GetListAsync` should not
    see them.
 
+## Testing filters and coverage
+
+`ApplyFilters` and `ApplyBaseFilters` often contain most of an AppService's
+branching logic. Do not rely on a plain `GetListAsync(new Input())` smoke test
+for meaningful coverage.
+
+Add a dedicated `Should_Get_List_With_All_Filters` test when the list input has
+typed filters:
+
+1. Seed or create records that should match.
+2. Seed or create nearby records that should not match.
+3. Call `GetListAsync` with every supported query parameter populated in the
+   same request: text, enum, bool, date ranges, numeric ranges, and foreign keys.
+4. Assert that matching rows are present and non-matching rows are absent.
+
+Use separate tests only when filters have independent edge cases that cannot be
+represented clearly in one input.
+
+## Coverage execution with MongoDB tests
+
+ABP MongoDB tests that start embedded MongoDB or replica-set helpers such as
+`MongoSandbox.Core` can keep background processes or sockets alive after tests
+finish. VSTest data collectors such as `coverlet.collector` may then hang while
+waiting for process exit.
+
+Prefer `coverlet.msbuild` for these projects:
+
+```powershell
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+```
+
+Do not mix `coverlet.collector` and `coverlet.msbuild` in the same test run.
+If coverage hangs after all tests pass, check the test `.csproj` first and move
+collector-based coverage to MSBuild-based coverage before changing test logic.
+
+Exclude generated or non-business infrastructure from coverage thresholds when
+it would distort the signal: migration services, schema migrators, health
+checks, entry points, generated controllers, branding providers, and mapping
+glue. Keep AppServices, DomainServices, custom repositories, lifecycle rules,
+permission behavior, and filters in scope.
+
 ## Common pitfalls
 
 - **Tests aren't independent.** The framework gives each test a fresh DB,
@@ -284,3 +327,6 @@ ex.Code.ShouldContain("InvalidStatusTransition");
   is not enough — the test should also confirm `StatusChangedAt` was set,
   otherwise a regression where the entity skips the assignment would slip
   through.
+- **Coverage run hangs after tests passed.** In MongoDB-backed test projects,
+  suspect `coverlet.collector` interacting with embedded MongoDB background
+  services before blaming the test body. Use `coverlet.msbuild`.
