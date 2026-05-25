@@ -13,7 +13,7 @@
     {
       "name": "ibl-skill-improvement",
       "source": "./plugins/ibl-skill-improvement",
-      "description": "IBL workflow for capturing, reviewing, and applying reusable improvements to agent skills."
+      "description": "IBL workflow for capturing, reviewing, applying, and updating reusable agent skills."
     }
   ]
 }

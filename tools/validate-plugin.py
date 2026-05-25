@@ -17,6 +17,7 @@ PLUGIN_SKILLS = {
         "abp-testing",
     },
     "ibl-skill-improvement": {
+        "agent-plugin-update",
         "skill-improvement",
     },
 }

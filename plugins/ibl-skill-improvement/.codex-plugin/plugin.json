@@ -1,7 +1,7 @@
 {
   "name": "ibl-skill-improvement",
   "version": "0.1.0",
-  "description": "IBL workflow for capturing, reviewing, and applying reusable improvements to agent skills.",
+  "description": "IBL workflow for capturing, reviewing, applying, and updating reusable agent skills.",
   "author": {
     "name": "IBL"
   },
@@ -16,8 +16,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "IBL Skill Improvement",
-    "shortDescription": "Capture and apply reusable skill improvements.",
-    "longDescription": "IBL Skill Improvement defines the inbox workflow used by agents to turn runtime skill failures into auditable, validated improvements against canonical skill sources.",
+    "shortDescription": "Capture improvements and update IBL agent plugins.",
+    "longDescription": "IBL Skill Improvement defines the inbox workflow used by agents to turn runtime skill failures into auditable, validated improvements against canonical skill sources, plus helper workflows for updating the plugin checkout from GitHub.",
     "developerName": "IBL",
     "category": "Productivity",
     "capabilities": [
@@ -27,7 +27,7 @@
     "defaultPrompt": [
       "Create an improvement artifact for the skill that failed.",
       "Process the oldest skill improvement in the inbox.",
-      "Validate pending skill improvement artifacts."
+      "Update IBL agent plugins from GitHub."
     ]
   }
 }

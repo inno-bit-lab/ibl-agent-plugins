@@ -20,7 +20,7 @@ sono adattatori per host diversi; il sorgente autorevole resta questo repo.
 ## Plugin disponibili
 
 - `plugins/ibl-abp` - skill ABP Framework per backend .NET, MongoDB, multitenancy, React UI e test.
-- `plugins/ibl-skill-improvement` - skill per catturare, revisionare e applicare improvement alle skill aziendali.
+- `plugins/ibl-skill-improvement` - skill per catturare, revisionare, applicare improvement e aggiornare il checkout dei plugin aziendali.
 
 ## Layout
 
@@ -90,6 +90,50 @@ skill fallisce
 
 Gli artifact applicati vengono spostati in `improvements/applied/`. Gli artifact
 non validi o superati vengono spostati in `improvements/rejected/`.
+
+## Aggiornamento
+
+Il canale di update del team è GitHub. Se il repo è già clonato, il fallback
+manuale resta:
+
+```powershell
+cd "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+git pull --ff-only
+```
+
+Con il plugin `ibl-skill-improvement` installato, l'utente può invece chiedere
+all'agent di aggiornare i plugin IBL senza ricordare la cartella. La skill
+`agent-plugin-update` usa questo helper:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/agent-plugin-update/scripts/update_agent_plugins.py --validate
+```
+
+L'helper cerca il checkout tramite `IBL_AGENT_PLUGINS_HOME`, directory corrente,
+path standard sotto `%USERPROFILE%\agent-marketplaces\`, e installazioni linkate
+di Antigravity, Claude Code o OpenCode.
+
+Per Codex, se il marketplace è stato aggiunto direttamente da GitHub:
+
+```powershell
+codex plugin marketplace add inno-bit-lab/ibl-agent-lugins --ref main
+```
+
+la snapshot Codex si aggiorna con:
+
+```powershell
+codex plugin marketplace upgrade
+```
+
+oppure tramite la skill:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/agent-plugin-update/scripts/update_agent_plugins.py --codex-marketplace-upgrade
+```
+
+Questo non installa nuovi plugin e non sovrascrive copie installate. Per
+installazioni fatte con link/junction il pull basta; per installazioni copiate
+serve rilanciare `tools/install-plugin.py` con `--strategy copy --force`.
 
 ## Installazione
 

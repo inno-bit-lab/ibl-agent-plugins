@@ -70,6 +70,20 @@ python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvemen
 python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py validate improvements/inbox/<artifact-id>
 ```
 
+## Update Workflow
+
+When a user asks to update, pull, refresh, or sync IBL agent plugins without
+remembering the checkout folder, use the `agent-plugin-update` skill helper:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/agent-plugin-update/scripts/update_agent_plugins.py --validate
+```
+
+The helper discovers the canonical checkout, runs `git pull --ff-only`, and can
+optionally run `codex plugin marketplace upgrade` with
+`--codex-marketplace-upgrade`. Do not install, reinstall, or overwrite host
+copies unless the user explicitly asks.
+
 ## Validation
 
 Run the repo validator after structural, manifest, skill, or improvement changes:
