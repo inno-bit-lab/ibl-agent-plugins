@@ -295,6 +295,7 @@ The short version:
 |---|---|
 | Add a new entity / DTO / AppService end-to-end | `abp-feature-dev` |
 | Port a schema from Postgres/SQL/another system | `abp-feature-dev` |
+| Decide module ownership, split a monolith, move features between modules | `abp-module-architecture` |
 | Configure MongoDB context, custom repositories, indexes | `abp-mongodb` |
 | Make an entity tenant-aware, switch tenant context, configure tenant resolution | `abp-multitenancy` |
 | Write integration tests for an AppService / DomainService | `abp-testing` |

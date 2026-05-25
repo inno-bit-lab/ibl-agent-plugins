@@ -16,6 +16,11 @@ conventions: typed `Get{Entities}Input` filters, enum names as strings on
 the wire, multi-tenant permissions, name-based localization keys,
 case-insensitive `.ToLower()` search.
 
+If the backend feature belongs to a module, use `abp-module-architecture`
+before editing React. Module-owned pages, API clients, and route/menu entries
+belong under that module's `react/src`; only reused components/primitives go
+to Shared UI.
+
 ## The three rules
 
 1. **Reuse before invent.** Every CRUD UI is assembled from the standard
@@ -46,6 +51,40 @@ case-insensitive `.ToLower()` search.
 | i18n keys, ABP localization fetch, fallback inline pattern | `references/i18n.md` |
 | Form validation with React Hook Form + Zod | `references/forms.md` |
 | Modifying or deleting an existing UI feature | `references/modify-delete.md` |
+
+## Modular React placement
+
+For modular ABP projects, prefer:
+
+```text
+modules/<feature-module>/react/src/
+  module.ts
+  pages/
+  components/
+  lib/api/
+
+modules/<shared-module>/react/src/
+  components/ui/
+  hooks/
+  lib/
+```
+
+The host React app keeps shell concerns only: auth, theme, layout, tenant
+switch, root router, and `src/modules/registry.ts`.
+
+After moving React files outside `react/src`, update all three:
+
+- Vite aliases (`@ibl360/<module>-ui`)
+- TypeScript paths/includes
+- Tailwind v4 sources:
+
+```css
+@source "../../../modules/ibl360shared/react/src";
+@source "../../../modules/ibl360crm/react/src";
+```
+
+Symptom if Tailwind is missed: the app renders but module pages/components look
+unstyled or partially styled.
 
 ## When you absolutely must run this skill
 
@@ -144,16 +183,22 @@ backend contract is ready, you walk this list"):
    Input, Select, Table, StatusPill, ConfirmDialog, Dialog +
    `useDebouncedSearch`. See `page-pattern.md` for the full template
    that you can adapt by changing field/filter names.
-3. **`routes/router.tsx`** — add the route with
-   `beforeLoad: createPermissionGuard('Ibl360.{Plural}')`. See
-   `routing-menu.md`.
-4. **`lib/routing/route-config.ts`** — add the sidebar entry with
-   `group`, `nameKey`, **`fallbackName` (mandatory)**, `icon` from
-   `lucide-react`, `order`, `requiredPolicy`. See `routing-menu.md`.
+3. **Routes** — in a modular app, expose routes from the module's
+   `react/src/module.ts` and register the module in the host registry. In a
+   non-modular app, add them directly to `routes/router.tsx`. Use the owning
+   module permission namespace, e.g.
+   `createPermissionGuard('Ibl360Crm.Customers')`, not the old host namespace.
+4. **Menu entries** — in a modular app, put sidebar entries in the module's
+   `menuItems`; the host `route-config.ts` should merge module entries. In a
+   non-modular app, edit `lib/routing/route-config.ts`. Every entry needs
+   `fallbackName`, `icon`, `order`, `group`, and the owning module
+   `requiredPolicy`.
 5. **Localization keys** in **every** project language file
-   (`Ibl360/Localization/Ibl360/{it,en,fr,es}.json`). See `i18n.md` for
-   the canonical list of keys per CRUD page. **Use `{{name}}` not `{name}`**
-   for interpolations — react-i18next wants double braces.
+   of the owning resource. For module-owned UI this is the module resource
+   (`modules/<module>/<Module>.Contracts/Localization/<Module>/{it,en,fr,es}.json`),
+   not the host resource. See `i18n.md` for the canonical list of keys per
+   CRUD page. **Use `{{name}}` not `{name}`** for interpolations —
+   react-i18next wants double braces.
 6. **TenantSwitch** — one-time project setup; only if the app doesn't
    already have one. See `tenant-switch.md`.
 
@@ -165,6 +210,9 @@ npx tsc --noEmit -p tsconfig.app.json
 
 Should be clean for your new files (pre-existing errors in test files
 or stale enums are not yours to fix).
+
+For modular moves, also run `npm run build`; Vite validates aliases and the
+CSS output size often reveals whether Tailwind picked up module sources.
 
 Tell the user to **hard refresh** (Ctrl+F5) before testing — the React
 app caches the i18n bundle and won't see new keys until invalidated.

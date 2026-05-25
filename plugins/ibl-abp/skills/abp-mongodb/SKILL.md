@@ -12,6 +12,25 @@ that bite teams new to the stack.
 
 For framework-wide conventions (DI, base classes, async, etc.) see
 `abp-core`. For the entity/AppService/DTO scaffold see `abp-feature-dev`.
+For modular ownership decisions see `abp-module-architecture`.
+
+## Context selection in modular solutions
+
+If the solution has `modules/`, choose the Mongo context owned by the module
+that owns the entity. Do not register a CRM entity in the host context just
+because the host can see it.
+
+Rules:
+
+- Feature entity collection properties belong in the feature module context.
+- Shared abstractions are registered only when they are concrete persisted
+  aggregate roots; base classes/value objects usually do not need collections.
+- Index seed contributors live beside the module context and use that module's
+  `IMongoDbContextProvider<TModuleMongoDbContext>`.
+- Keep collection names stable while moving modules unless there is an explicit
+  data migration.
+- If the module uses a named connection string, add the matching key or let it
+  fall back deliberately to `Default`; do not leave the name accidental.
 
 ## The two mental shifts from EF Core
 

@@ -11,6 +11,7 @@ PLUGIN_SKILLS = {
     "ibl-abp": {
         "abp-core",
         "abp-feature-dev",
+        "abp-module-architecture",
         "abp-mongodb",
         "abp-multitenancy",
         "abp-react-ui",

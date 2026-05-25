@@ -16,6 +16,7 @@ skills:
 | Concern | Delegate to |
 |---|---|
 | Project conventions, base classes, anti-patterns | `abp-core` |
+| Module ownership, Shared-vs-feature placement, modular migration | `abp-module-architecture` |
 | MongoDB context, custom repositories, indexes | `abp-mongodb` |
 | Making entity tenant-aware, tenant filter behavior | `abp-multitenancy` |
 | React UI (CRUD page, route, sidebar entry, i18n) | `abp-react-ui` |
@@ -41,6 +42,24 @@ A scaffolder that always emits the same shape produces bloated code for trivial
 entities and undercooked code for rich ones. To get the right shape every time,
 **run the interview before generating code**. The user can short-circuit any
 question with "default" / "as you suggest" — but always *ask*.
+
+### Module placement gate
+
+Before Step 1, check whether the solution already has `modules/` or the user
+mentions modularization, bounded contexts, Shared, CRM/HR/Finance, moving
+resources, or "where should this entity live?" If yes, run
+`abp-module-architecture` first and do not scaffold into the host until module
+ownership is decided.
+
+The chosen module controls:
+
+- namespace root (`Ibl360Crm.*`, not `Ibl360.*`)
+- permission group and permission names
+- domain error code namespace
+- localization resource
+- MongoDB context and indexes
+- React UI package/folder and menu registry
+- seed/migration work for existing permission grants
 
 The interview has six steps. Each builds on the previous one; gather
 everything before you call the scaffolder so the generated code is right
