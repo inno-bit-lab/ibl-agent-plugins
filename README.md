@@ -77,6 +77,18 @@ La proposta contiene:
 Il plugin `ibl-skill-improvement` lavora questa inbox, revisiona la proposta e
 applica le correzioni solo al sorgente canonico sotto `plugins/`.
 
+Quando la skill è installata in Codex, Claude Code, Antigravity o OpenCode,
+l'area di installazione è solo una cache. Gli improvement devono comunque essere
+scritti nel checkout Git canonico. Il marketplace non imposta automaticamente
+`IBL_AGENT_PLUGINS_HOME`: quella variabile è solo un override opzionale per path
+non standard.
+
+Il helper `skills/skill-improvement/scripts/improvement_inbox.py` cerca il
+checkout tramite directory corrente, path standard sotto
+`%USERPROFILE%\agent-marketplaces\`, installazioni linkate e, se configurato,
+`IBL_AGENT_PLUGINS_HOME`. Se non trova il checkout, mostra il comando `gh repo
+clone` da eseguire una volta.
+
 Su GitHub il flusso previsto è:
 
 ```text
@@ -109,9 +121,9 @@ all'agent di aggiornare i plugin IBL senza ricordare la cartella. La skill
 python plugins/ibl-skill-improvement/skills/agent-plugin-update/scripts/update_agent_plugins.py --validate
 ```
 
-L'helper cerca il checkout tramite `IBL_AGENT_PLUGINS_HOME`, directory corrente,
-path standard sotto `%USERPROFILE%\agent-marketplaces\`, e installazioni linkate
-di Antigravity, Claude Code o OpenCode.
+L'helper cerca il checkout tramite directory corrente, path standard sotto
+`%USERPROFILE%\agent-marketplaces\`, installazioni linkate di Antigravity,
+Claude Code o OpenCode e, se configurato, `IBL_AGENT_PLUGINS_HOME`.
 
 Per Codex, se il marketplace è stato aggiunto direttamente da GitHub:
 
@@ -208,6 +220,12 @@ Prima di proporre o mergiare modifiche:
 ```powershell
 python tools/validate-plugin.py
 python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py list
+```
+
+Se il repo canonico non è nella directory corrente:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py list --repo "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
 ```
 
 Per validare i manifest Codex:

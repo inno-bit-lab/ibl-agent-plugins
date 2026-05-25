@@ -15,6 +15,32 @@ The repository root is the improvement base. It must contain both:
 Never edit installed copies in Claude Code, Codex, Antigravity, or OpenCode as
 the source of truth. Apply changes to canonical paths under `plugins/`.
 
+When this skill is running from an installed plugin cache, that cache is not the
+improvement base. Codex, Claude Code, Antigravity, and OpenCode do not set
+`IBL_AGENT_PLUGINS_HOME` automatically when installing from a marketplace.
+
+Use the helper script next to this `SKILL.md`; it discovers the canonical
+repository from:
+
+1. `IBL_AGENT_PLUGINS_HOME`, only if the user or team explicitly configured it
+2. The current working directory and its parents
+3. `$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins`
+4. Linked plugin installs for Antigravity, Claude Code, and OpenCode
+
+If discovery fails, do not write into the installed cache. Ask the user to clone
+the repository once:
+
+```powershell
+gh repo clone inno-bit-lab/ibl-agent-lugins "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+```
+
+For non-standard locations, pass `--repo` to the helper subcommand or ask the
+user to define `IBL_AGENT_PLUGINS_HOME` persistently:
+
+```powershell
+python <this-skill-folder>\scripts\improvement_inbox.py list --repo C:\path\to\ibl-agent-lugins
+```
+
 ## Two Modes
 
 ### Capture Mode
@@ -44,6 +70,9 @@ python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvemen
   --improvement "Clarify namespace resolution and update scaffold_entity.py" `
   --resource "plugins/ibl-abp/skills/abp-feature-dev/scripts/scaffold_entity.py"
 ```
+
+If the skill is installed in an agent cache, run the same script from the
+installed skill folder instead of assuming the current workspace is this repo.
 
 ### Process Mode
 

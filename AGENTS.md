@@ -70,6 +70,13 @@ python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvemen
 python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py validate improvements/inbox/<artifact-id>
 ```
 
+When the skill is running from an installed plugin cache, the cache is not the
+improvement base. Marketplaces do not set `IBL_AGENT_PLUGINS_HOME`
+automatically; treat it only as an optional override. Use the helper script
+anyway: it discovers the canonical checkout through the current directory,
+common `agent-marketplaces` paths, linked plugin installs, and the optional env
+var. For non-standard locations, pass `--repo` to the subcommand.
+
 ## Update Workflow
 
 When a user asks to update, pull, refresh, or sync IBL agent plugins without
