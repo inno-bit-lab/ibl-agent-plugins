@@ -108,17 +108,45 @@ Files: `src/components/ui/input.tsx`, `src/components/ui/label.tsx`
 
 Filled style (sits on `bg-elev`), no border by default. On focus the
 background lifts to `bg-card` AND gains a `primary-soft` ring. 40px tall
-to align with Button sizes.
+to align with Button sizes. For most form fields you don't instantiate
+Label directly — reach for `<Field>` instead (below).
+
+### `<Field>` — labelled form field
+File: `src/components/ui/field.tsx`
+
+The canonical wrapper for a labelled control with optional required
+asterisk and inline error. **Use this on every form field.** Don't
+redeclare a local `Field` helper at the bottom of the page — we already
+shipped six copies of that pattern and consolidated them here.
 
 ```tsx
-<div className="grid gap-1.5">
-  <Label className="text-xs font-medium uppercase tracking-[0.06em] text-fg-muted">
-    {t('LegalName')}
-    <span className="text-error ml-0.5">*</span>
-  </Label>
+import { Field } from '@/components/ui/field'
+
+<Field
+  label={t('LegalName', 'Ragione sociale')}
+  required
+  error={form.formState.errors.legalName?.message}
+>
   <Input {...form.register('legalName')} />
-</div>
+</Field>
+
+// Without required, without an error binding:
+<Field label={t('Phone', 'Telefono')}>
+  <Input {...form.register('phone')} />
+</Field>
 ```
+
+Renders: the label in the small-caps treatment
+(`uppercase tracking-[0.06em] text-fg-muted`), an `*` in `text-error`
+after the label when `required`, the children (your control), and an
+inline `<p className="text-xs text-error">` for the error when present.
+
+`className` is forwarded to the wrapping `<div className="grid
+gap-1.5">` for the rare layout adjustment.
+
+For non-form labels (a section heading, a hint group, a date picker
+with a help line beneath) reach for `Label` directly — `<Field>` is
+specifically the form-field wrapper.
 
 ### `<Select>` (shadcn)
 File: `src/components/ui/select.tsx`

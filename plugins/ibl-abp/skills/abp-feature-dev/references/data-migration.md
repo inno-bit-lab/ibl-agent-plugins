@@ -17,6 +17,7 @@ safely.
 | Remove an entity (e.g. SupplierContact) | ✓ | **migrate or drop** | drop | **drop grants** |
 | Move a flat field into a VO (Country → BillingAddress.Country) | ✓ | **migrate or accept null on old docs** | drop+recreate w/ new path | — |
 | Split an entity (Contact owning Customer FK only → Contact owning Customer OR Supplier FK) | ✓ | **migrate FK / merge data from sibling collection** | rebuild | unify perms |
+| **Scalar FK → array of FKs (1:N → N:N, e.g. `CustomerId?` → `CustomerIds: List<Guid>`)** | ✓ | **per-doc `$set: [scalar]` + `$unset` legacy** | drop single-field, recreate multikey | — |
 
 The "Data?" column is the one that gets forgotten. Build green +
 restart green ≠ refactor green. Walk the DB before declaring done.
@@ -166,6 +167,103 @@ db.Customers.updateMany(
   { $set: { RelationshipType: "Customer" } }
 )
 ```
+
+## Scalar foreign key → array (1:N → N:N migration)
+
+Real case from IBL360: `Contact` was refactored from `CustomerId?` /
+`SupplierId?` (each contact tied to at most one customer + one supplier)
+to `CustomerIds: List<Guid>` / `SupplierIds: List<Guid>` (each contact
+can belong to multiple customers AND multiple suppliers simultaneously).
+
+The C# build is green because Mapperly maps the DTO to the new fields,
+but **legacy documents in Mongo still have the old scalar fields**. The
+driver doesn't error on the old field (it ignores it) — but it
+deserialises the new field as an empty array. Result: every existing
+Contact loses its associations the moment the new code reads it. The
+list page still renders, but the chips column is empty for every
+pre-migration row.
+
+The trap: this is asymptomatic at build/restart time. You only see it
+on a smoke test of an existing edited entity. Dev databases with no
+pre-existing data hide the bug until production cutover.
+
+### Migration recipe
+
+Per-document `$set` from the scalar to a one-element array, then
+`$unset` the legacy field. Wrap in a single bulk update so partial
+failures don't leave the collection in a mixed state:
+
+```js
+// In mongo shell or via MongoDB MCP `update-many`. The query targets
+// only docs that still have the old scalar field — re-running the
+// migration is a no-op.
+
+// Step 1 — Build the array from the scalar where present.
+db.Contacts.find({ CustomerId: { $exists: true, $ne: null } }).forEach((doc) => {
+  db.Contacts.updateOne(
+    { _id: doc._id },
+    { $set: { CustomerIds: [doc.CustomerId] }, $unset: { CustomerId: "" } }
+  )
+})
+db.Contacts.find({ SupplierId: { $exists: true, $ne: null } }).forEach((doc) => {
+  db.Contacts.updateOne(
+    { _id: doc._id },
+    { $set: { SupplierIds: [doc.SupplierId] }, $unset: { SupplierId: "" } }
+  )
+})
+
+// Step 2 — Clean any leftover scalar fields with null values.
+db.Contacts.updateMany(
+  { CustomerId: { $exists: true } },
+  { $unset: { CustomerId: "" } }
+)
+db.Contacts.updateMany(
+  { SupplierId: { $exists: true } },
+  { $unset: { SupplierId: "" } }
+)
+```
+
+### Sanity sweep
+
+```js
+// No scalar fields anywhere.
+db.Contacts.countDocuments({ CustomerId: { $exists: true } })  // → 0
+db.Contacts.countDocuments({ SupplierId: { $exists: true } })  // → 0
+
+// Every doc has both arrays (even if one is empty — the C# class default).
+db.Contacts.countDocuments({ CustomerIds: { $exists: false } })  // → 0
+db.Contacts.countDocuments({ SupplierIds: { $exists: false } })  // → 0
+
+// At least one association — the domain rule that a Contact must
+// belong to at least one party.
+db.Contacts.countDocuments({
+  $expr: { $eq: [{ $add: [{ $size: "$CustomerIds" }, { $size: "$SupplierIds" }] }, 0] }
+})  // → 0 (or investigate orphans)
+```
+
+### Index rebuild
+
+Single-field indexes on `CustomerId` / `SupplierId` no longer fire — drop
+and replace with **multikey** indexes on the arrays. MongoDB indexes
+arrays element-wise by default, so the new indexes serve both "contains
+this id" and "any contact for this customer" queries:
+
+```js
+db.Contacts.dropIndex("CustomerId_1")  // and SupplierId_1 if present
+db.Contacts.createIndex({ CustomerIds: 1 })
+db.Contacts.createIndex({ SupplierIds: 1 })
+```
+
+Mirror this in your `ContactIndexInitializer` so a fresh DB also gets
+the new indexes.
+
+### Frontend pairing
+
+Remember to update the React API client (`react/src/lib/api/contact.ts`)
+from `customerId: string | null` to `customerIds: string[]`, and the form
+schema from a single `<Select>` to a multi-select UI. The chip-based
+`AssociationsEditor` pattern in IBL360 is a good template — see
+`abp-react-ui` skill for the UI side.
 
 ## Renaming a field
 

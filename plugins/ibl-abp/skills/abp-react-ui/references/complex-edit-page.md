@@ -85,27 +85,101 @@ Responsibilities:
 4. The submit button uses `form="..."` so it can live OUTSIDE the
    `<form>` tag and still trigger react-hook-form's `handleSubmit`.
 
-Page wraps its form like this:
+## Page structure: outer wrapper + remount-keyed inner form
+
+The page is **always** split into two functions: a thin outer that
+handles route params and the data load, and an inner form keyed on the
+loaded entity's id. This is non-negotiable — see `forms.md` for the
+"why" (it dodges the stale-Controller bug class on Radix Selects bound
+via `<Controller>`).
 
 ```tsx
-return (
-  <EditPageShell
-    title={title}
-    backTo="/customers"
-    formId="customer-form"
-    saving={createMutation.isPending || updateMutation.isPending}
-    onCancel={() => navigate({ to: '/customers' })}
-    tabs={<TabsStrip tabs={TABS} active={tab} onChange={setTab} errorTabs={tabsWithErrors} />}
-  >
-    <form id="customer-form" onSubmit={form.handleSubmit(onSubmit)}>
-      <CardContent className="p-4 sm:p-5">
-        {tab === 'general' && <GeneralPanel form={form} />}
-        {/* ... */}
-      </CardContent>
-    </form>
-  </EditPageShell>
-)
+// Outer: route params, query, loading guard, remount key.
+export function CustomerEditPage() {
+  const { t } = useTranslation()
+  const params = useParams({ strict: false }) as { id?: string }
+  const id = params.id
+
+  const { data: existing, isLoading } = useQuery({
+    queryKey: ['customer', id],
+    queryFn: () => getCustomer(id!),
+    enabled: !!id,
+  })
+
+  if (id && isLoading) {
+    return (
+      <Card className="px-5 py-8 text-center text-sm text-fg-muted">
+        {t('AbpAccount::PleaseWait', 'Attendere…')}
+      </Card>
+    )
+  }
+
+  return (
+    <CustomerEditForm
+      key={existing?.id ?? 'new'}
+      id={id}
+      existing={existing ?? null}
+    />
+  )
+}
+
+// Inner: useForm with the right defaults from the start, EditPageShell + form.
+function CustomerEditForm({
+  id,
+  existing,
+}: { id: string | undefined; existing: CustomerDto | null }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const isEdit = !!id
+  const [tab, setTab] = useState<TabKey>('general')
+
+  const form = useForm<CustomerFormData>({
+    resolver: zodResolver(customerSchema),
+    defaultValues: existing ? fromDto(existing) : defaultValues(),
+  })
+
+  const createMutation = useMutation({ /* … */ })
+  const updateMutation = useMutation({ /* … */ })
+  const onSubmit = (values: CustomerFormData) => { /* … */ }
+  const tabsWithErrors = useMemo(
+    () => computeTabsWithErrors(form.formState.errors),
+    [form.formState.errors]
+  )
+
+  return (
+    <EditPageShell
+      title={isEdit
+        ? t('Customers:EditPageTitle', 'Modifica cliente')
+        : t('Customers:NewPageTitle', 'Nuovo cliente')}
+      backTo="/customers"
+      formId="customer-form"
+      saving={createMutation.isPending || updateMutation.isPending}
+      onCancel={() => navigate({ to: '/customers' })}
+      tabs={<TabsStrip tabs={TABS} active={tab} onChange={setTab} errorTabs={tabsWithErrors} />}
+    >
+      <form id="customer-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <CardContent className="p-4 sm:p-5">
+          {tab === 'general' && <GeneralPanel form={form} />}
+          {/* ... */}
+        </CardContent>
+      </form>
+    </EditPageShell>
+  )
+}
 ```
+
+Notes on this structure:
+
+- The inner form does **not** call `useQuery` again — the outer already
+  loaded and is passing the DTO down. One query, one source of truth.
+- `key={existing?.id ?? 'new'}` is what triggers the remount when the
+  user navigates between `/customers/A/edit` and `/customers/B/edit`
+  (or between `/customers/new` and `/customers/A/edit`). Without it,
+  TanStack Router keeps the same component mounted on param changes
+  and you're back to the stale-Controller class of bugs.
+- The `if (id && isLoading)` guard only fires in edit mode — create
+  mode (`!id`) renders the form immediately with empty defaults.
 
 Remember `pb-24 lg:pb-0` on the outer container of the page (or on the
 shell itself, as in IBL360) to leave room for the fixed mobile bar.

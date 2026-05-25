@@ -250,6 +250,15 @@ See `modify-delete.md` for the full checklist.
 - **`useDebouncedSearch`** for any text filter that hits the backend
   (≥2 chars, 350ms debounce, spinner + hint).
 - **RHF + Zod** for forms (no manual `useState` for inputs).
+- **Edit forms use the remount-on-id pattern**: thin outer wrapper loads
+  the entity + renders `<XxxForm key={existing?.id ?? 'new'} existing={…} />`;
+  the inner calls `useForm({ defaultValues: existing ? fromDto(existing) : defaults() })`.
+  Never `useForm + useEffect(() => form.reset(fromDto(existing)), [existing])`
+  in the same component — that pattern silently breaks every Radix Select
+  bound via `<Controller>` (stale hidden `<select>` + placeholder in the
+  trigger). See `forms.md` → "Edit mode — the remount-on-id pattern".
+- **Use `<Field>` from `@/components/ui/field.tsx`** for every labelled
+  form field. Don't redeclare a local `Field` helper.
 - **TanStack Query** for fetching (no `useEffect + fetch`); every
   mutation invalidates the list query key on success.
 - **Tables collapse to card-list below `lg` (1024px)**; mobile gets a
