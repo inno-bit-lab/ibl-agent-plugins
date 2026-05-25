@@ -1,6 +1,6 @@
 ---
 name: abp-testing
-description: 'Integration testing patterns for ABP Framework projects: ApplicationTestBase, DomainTestBase, Shouldly, AAA, IDataSeedContributor test data, AddAlwaysAllowAuthorization, NSubstitute for external dependencies, CurrentUser.Change, CurrentTenant.Change, lifecycle/state-machine tests, multi-tenancy isolation, and bulk-operation tests. Use to write or scaffold tests for ABP AppServices, DomainServices, repositories, permissions, per-user behavior, tenant behavior, lifecycle transitions, or bulk operations.'
+description: 'Integration testing patterns for ABP Framework projects: ApplicationTestBase, DomainTestBase, Shouldly, AAA, IDataSeedContributor test data, AddAlwaysAllowAuthorization, NSubstitute for external dependencies, CurrentUser.Change, CurrentTenant.Change, CRUD AppService tests, lifecycle/state-machine tests, multi-tenancy isolation, and bulk-operation tests. Use to write or scaffold tests for ABP AppServices, DomainServices, repositories, permissions, per-user behavior, tenant behavior, lifecycle transitions, or bulk operations.'
 ---
 
 # ABP Testing
@@ -82,10 +82,19 @@ under the solution root) and writes:
 {TestProject}/Books/BookAppService_Tests.cs
 ```
 
-with three **baseline** tests always included:
+with a standard CRUD **baseline** always included:
 1. `Should_Get_List` — basic GetListAsync smoke test.
-2. `Should_Create_{Entity}` — happy-path create.
-3. `Should_Throw_Validation_For_Invalid_Input` — `AbpValidationException` path.
+2. `Should_Get_{Entity}` — create or seed one row, then GetAsync by id.
+3. `Should_Create_{Entity}` — happy-path create.
+4. `Should_Update_{Entity}` — update at least one editable field.
+5. `Should_Delete_{Entity}` — delete and verify the row no longer appears.
+6. `Should_Throw_Validation_For_Invalid_Input` — `AbpValidationException` path.
+
+Add focused tests for any entity-specific business rules:
+- permission behavior when permission enforcement is part of the feature
+- tenant isolation when the entity implements `IMultiTenant`
+- lifecycle transitions when the entity has status/state behavior
+- uniqueness or other invariant failures that should throw `BusinessException`
 
 Plus optional blocks (added automatically when the AppService interface
 exposes the relevant methods, or explicitly via `--include`):

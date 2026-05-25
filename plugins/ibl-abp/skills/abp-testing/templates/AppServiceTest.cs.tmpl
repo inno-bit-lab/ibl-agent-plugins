@@ -32,6 +32,20 @@ public class {{ENTITY_NAME}}AppService_Tests : {{PROJECT_NAME}}ApplicationTestBa
     }
 
     [Fact]
+    public async Task Should_Get_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in valid property values
+            });
+
+        var result = await _{{ENTITY_LOWER}}AppService.GetAsync(created.Id);
+
+        result.Id.ShouldBe(created.Id);
+    }
+
+    [Fact]
     public async Task Should_Create_{{ENTITY_NAME}}()
     {
         var input = new CreateUpdate{{ENTITY_NAME}}Dto
@@ -42,6 +56,42 @@ public class {{ENTITY_NAME}}AppService_Tests : {{PROJECT_NAME}}ApplicationTestBa
         var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(input);
 
         created.Id.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task Should_Update_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in initial valid property values
+            });
+
+        var updated = await _{{ENTITY_LOWER}}AppService.UpdateAsync(
+            created.Id,
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in changed valid property values
+            });
+
+        updated.Id.ShouldBe(created.Id);
+        // TODO: assert the changed fields.
+    }
+
+    [Fact]
+    public async Task Should_Delete_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in valid property values
+            });
+
+        await _{{ENTITY_LOWER}}AppService.DeleteAsync(created.Id);
+
+        var list = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input());
+        list.Items.ShouldNotContain(x => x.Id == created.Id);
     }
 
     [Fact]

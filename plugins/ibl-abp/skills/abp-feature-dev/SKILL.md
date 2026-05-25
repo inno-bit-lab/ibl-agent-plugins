@@ -1,6 +1,6 @@
 ---
 name: abp-feature-dev
-description: 'End-to-end ABP feature development with an interview-driven workflow. Use to add or port entities, create AppServices and DTOs, scaffold CRUD endpoints, design aggregates or DomainServices, configure permissions, mapping, filters, bulk delete, Excel export, lookup endpoints, concurrency stamps, soft delete, lifecycle methods, and final validation. Trigger on "add an entity", "port this table", "new AppService", "scaffold CRUD", "add permissions", "aggregate root", "DTO", "Mapperly", "filtri di lista", "export Excel", or any ABP feature work.'
+description: 'End-to-end ABP feature development with an interview-driven workflow. Use to add or port entities, create AppServices and DTOs, scaffold CRUD endpoints, design aggregates or DomainServices, configure permissions, mapping, filters, bulk delete, Excel export, lookup endpoints, concurrency stamps, soft delete, lifecycle methods, explicit test coverage decisions, and final validation. Trigger on "add an entity", "port this table", "new AppService", "scaffold CRUD", "add permissions", "aggregate root", "DTO", "Mapperly", "filtri di lista", "export Excel", or any ABP feature work.'
 ---
 
 # ABP Feature Development
@@ -258,7 +258,8 @@ See **"The scaffolder"** below for the full argument reference.
 
 Then proceed through the **finalization steps** (see "Finalization" further
 down): register in DbContext, add IMultiTenant if needed, merge permissions,
-add mappers and localization, run final build validation.
+add mappers and localization, ask the explicit test coverage question, and run
+final validation.
 
 ## The scaffolder
 
@@ -411,9 +412,7 @@ mark a feature "done" until all of these are completed.
    (e.g. "Enum:AccountType.Bank" instead of "Bancario"). Always mention
    this step when handing the feature off to the user.
 
-7. **Run final validation.** This is mandatory — see "Validation" below.
-
-8. **Propose the React UI.** If the solution contains a React app
+7. **Propose the React UI.** If the solution contains a React app
    (`react/` or `react-public-web/` with `@tanstack/react-router` in
    `package.json`), the feature isn't really done until users can interact
    with it. Ask:
@@ -434,14 +433,43 @@ mark a feature "done" until all of these are completed.
 
    If the project has no React app, skip silently.
 
-9. **For complex UI, run `impeccable` after scaffolding.** When the
+8. **For complex UI, run `impeccable` after scaffolding.** When the
    entity took the dedicated edit-page path, `abp-react-ui` Step 7
    invokes `impeccable` as a polish pass to catch responsive bugs
    (grid-explodes-on-mobile), tap-target sizes, sticky chrome, nested
    cards, a11y. Don't skip — multi-tab forms have many more places to
    break than dialogs.
 
-10. **Suggest writing tests.** Delegate to `abp-testing`.
+9. **Ask for test coverage.** Do not silently skip this step. If the user
+   already explicitly requested or rejected tests, honor that. Otherwise ask:
+
+   ```text
+   Do you want tests for {Entity}?
+     - backend   -> ABP integration tests for AppService/domain behavior
+     - frontend  -> React/Vitest tests for the CRUD page
+     - both      -> backend + frontend tests
+     - none      -> skip tests; final handoff will mention this gap
+   [default: backend for backend-only features; both when React UI was generated
+    and the frontend test setup is healthy]
+   ```
+
+   If backend or both: delegate to `abp-testing` and create/update
+   `{TestProject}/{Plural}/{Entity}AppService_Tests.cs`.
+
+   If frontend or both: delegate to `abp-react-ui` and create/update
+   `react/src/pages/{plural}/{Entity}Page.test.tsx` or the equivalent tests
+   for dedicated create/edit pages.
+
+   If tests cannot be added because the existing setup is broken, report the
+   pre-existing failure and ask whether to add only the unaffected side. If the
+   user chooses `none`, the final handoff must say this was an explicit skip.
+
+10. **Run final validation.** This is mandatory — see "Validation" below.
+    Run validation after the selected tests have been generated or explicitly
+    skipped.
+
+11. **Final handoff.** Include the selected test scope, test files added or
+    updated, test commands run, and any skipped coverage with the reason.
 
 ## Validation
 
@@ -460,6 +488,23 @@ It checks:
 - Localization keys exist in all language files (warns on missing translations)
 - Optional: `dotnet build` succeeds (with `-p:UseAppHost=false -t:Compile` so
   the in-use `apphost.exe` lock doesn't block the build on Windows)
+
+If backend tests were selected, also run:
+
+```bash
+dotnet test --filter {Entity}AppService_Tests
+```
+
+If frontend tests were selected, run the project's equivalent targeted command,
+for example:
+
+```bash
+npm run test:run -- {Entity}Page.test.tsx
+```
+
+If a broader frontend build/test command fails because of pre-existing
+unrelated errors, identify the unrelated files and still report whether the new
+tests compile/run when possible.
 
 A clean exit means the feature is wired correctly end-to-end. Any failure
 gives a precise pointer (file + line + missing piece) — fix it before

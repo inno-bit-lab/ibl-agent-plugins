@@ -590,6 +590,28 @@ See `shared-components.md` → `useDebouncedSearch` for the full hook API.
 - **Embedded child entity** → no separate page; the parent page exposes
   the child editing UI inline.
 
+## Frontend Page Tests
+
+When `abp-feature-dev` selects `frontend` or `both` for test coverage, add a
+focused page test beside the page (`{Entity}Page.test.tsx`) using the project's
+existing React/Vitest setup. Keep the test at the page contract level: mock the
+typed API client and assert user-visible behavior.
+
+Minimum CRUD page coverage:
+
+- renders list data from the API client mock
+- renders the empty state
+- create flow calls the create mutation with the normalized DTO shape
+- edit flow loads existing values and calls update
+- delete flow opens confirmation and calls delete
+- filters/search map to the typed backend query input
+- permission-gated actions are hidden or disabled as expected
+- lifecycle/status actions render allowed transitions and surface backend
+  `BusinessException` messages when applicable
+
+If the frontend test setup is missing or already broken, report that as a
+blocker and let the user decide whether to add only backend tests.
+
 ## Files this references
 
 For testing, place `{Entity}Page.test.tsx` alongside, mirroring the style
