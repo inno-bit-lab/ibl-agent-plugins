@@ -13,8 +13,9 @@ and OpenCode.
 - Author skill content only under `plugins/<plugin>/skills/<skill>/`.
 - Treat installed copies in agent-specific folders as generated outputs.
 - Do not edit global agent folders such as `~/.claude`, `~/.codex`,
-  `~/.config/opencode`, or Antigravity config locations unless the user
-  explicitly asks for installation or sync.
+  `~/.config/opencode`, `~/.gemini/config/plugins`, or Antigravity workspace
+  locations such as `.agents/plugins` unless the user explicitly asks for
+  installation or sync.
 - Keep plugin manifests as thin adapters. Do not duplicate skill text in
   manifests or marketplace files.
 
@@ -32,6 +33,17 @@ plugins/<plugin>/
 
 OpenCode consumes `skills/<skill>` folders directly through link/copy. Keep the
 same `SKILL.md` source shared across all hosts.
+
+Antigravity 2.0 consumes plugin folders from:
+
+```text
+<workspace-root>/.agents/plugins/<plugin-name>/
+<workspace-root>/_agents/plugins/<plugin-name>/
+~/.gemini/config/plugins/<plugin-name>/
+```
+
+Use `tools/install-plugin.py antigravity --plugin <plugin> --scope workspace`
+or `--scope global` instead of manually copying plugin folders.
 
 ## Improvement Workflow
 

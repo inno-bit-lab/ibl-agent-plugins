@@ -105,6 +105,55 @@ python tools/install-plugin.py opencode --plugin ibl-abp --scope workspace
 python tools/install-plugin.py claude --plugin ibl-skill-improvement --scope workspace
 ```
 
+### Antigravity 2.0
+
+Antigravity 2.0 supporta plugin custom come cartelle con `plugin.json`,
+`skills/`, `rules/`, `mcp_config.json` e `hooks.json`.
+
+Percorsi usati da Antigravity 2.0:
+
+```text
+<workspace-root>/.agents/plugins/<plugin-name>/   # workspace
+<workspace-root>/_agents/plugins/<plugin-name>/   # workspace alternativo
+~/.gemini/config/plugins/<plugin-name>/           # globale
+```
+
+Installazione workspace, consigliata per un progetto specifico:
+
+```powershell
+cd C:\projects\development\IBL\Ibl-ABP-Plugin
+
+python tools/install-plugin.py antigravity --plugin ibl-abp --scope workspace --workspace C:\projects\my-abp-project --strategy link
+python tools/install-plugin.py antigravity --plugin ibl-skill-improvement --scope workspace --workspace C:\projects\my-abp-project --strategy link
+```
+
+Questo crea:
+
+```text
+C:\projects\my-abp-project\.agents\plugins\ibl-abp
+C:\projects\my-abp-project\.agents\plugins\ibl-skill-improvement
+```
+
+Installazione globale, disponibile in tutti i workspace Antigravity:
+
+```powershell
+cd C:\projects\development\IBL\Ibl-ABP-Plugin
+
+python tools/install-plugin.py antigravity --plugin ibl-abp --scope global --strategy link
+python tools/install-plugin.py antigravity --plugin ibl-skill-improvement --scope global --strategy link
+```
+
+Questo crea:
+
+```text
+%USERPROFILE%\.gemini\config\plugins\ibl-abp
+%USERPROFILE%\.gemini\config\plugins\ibl-skill-improvement
+```
+
+Se Antigravity non mostra subito i plugin, riavvia Antigravity 2.0 o riapri il
+workspace. Su Windows `--strategy link` prova prima un symlink e poi una
+junction; usa `--strategy copy` se vuoi una copia congelata senza link al repo.
+
 Per installazioni team/globali usare `--scope global` solo quando si vuole
 aggiornare esplicitamente l'ambiente dell'agent.
 
