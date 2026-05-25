@@ -94,11 +94,24 @@ Su GitHub il flusso previsto è:
 ```text
 skill fallisce
   -> artifact in improvements/inbox
-  -> branch/PR
-  -> review e validazione
+  -> branch proposal-only
+  -> PR proposal-only
+  -> process/apply PR
+  -> review e validazione della modifica applicata
   -> merge
   -> update degli agent dal repo
 ```
+
+In Capture Mode l'agent che propone l'improvement deve pubblicare la richiesta,
+non applicarla automaticamente:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py publish improvements/inbox/<artifact-id> --create-pr
+```
+
+Questa operazione committa e pusha solo `improvements/inbox/<artifact-id>/`.
+Le modifiche reali sotto `plugins/` sono responsabilità del passaggio Process
+Mode, che può essere eseguito da un altro agent o maintainer.
 
 Gli artifact applicati vengono spostati in `improvements/applied/`. Gli artifact
 non validi o superati vengono spostati in `improvements/rejected/`.

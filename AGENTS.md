@@ -68,7 +68,13 @@ Use the helper when creating or validating artifacts:
 ```powershell
 python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py list
 python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py validate improvements/inbox/<artifact-id>
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py publish improvements/inbox/<artifact-id> --create-pr
 ```
+
+Capture Mode proposals should be published for other agents or maintainers to
+process later. Commit and push only the `improvements/inbox/<artifact-id>/`
+folder on a proposal branch. Do not modify canonical `plugins/` paths during
+Capture Mode unless the user explicitly asks to process the improvement now.
 
 When the skill is running from an installed plugin cache, the cache is not the
 improvement base. Marketplaces do not set `IBL_AGENT_PLUGINS_HOME`

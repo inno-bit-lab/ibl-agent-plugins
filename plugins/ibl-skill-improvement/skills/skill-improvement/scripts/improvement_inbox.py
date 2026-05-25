@@ -166,6 +166,22 @@ def write_if_missing(path: Path, text: str) -> None:
         path.write_text(text, encoding="utf-8")
 
 
+def run_command(command: list[str], root: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+    print("$ " + " ".join(command))
+    completed = subprocess.run(
+        command,
+        cwd=str(root),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    if completed.stdout:
+        print(completed.stdout.rstrip())
+    if check and completed.returncode != 0:
+        raise SystemExit(f"Command failed with exit code {completed.returncode}: {' '.join(command)}")
+    return completed
+
+
 def new_artifact(args: argparse.Namespace) -> int:
     root = find_repo_root(Path.cwd(), args.repo)
     inbox = root / "improvements" / "inbox"
@@ -326,6 +342,101 @@ def validate_artifact(args: argparse.Namespace) -> int:
     return 0
 
 
+def ensure_only_artifact_is_dirty(root: Path, artifact: Path) -> None:
+    rel = artifact.relative_to(root).as_posix()
+    status = run_command(["git", "status", "--porcelain"], root).stdout
+    dirty_outside: list[str] = []
+    for line in status.splitlines():
+        if len(line) < 4:
+            continue
+        path = line[3:].replace("\\", "/")
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        if path != rel and not path.startswith(rel + "/"):
+            dirty_outside.append(line)
+    if dirty_outside:
+        formatted = "\n".join(f"  {item}" for item in dirty_outside)
+        raise SystemExit(
+            "Refusing to publish a proposal while unrelated files are dirty.\n"
+            "Commit, stash, or finish those changes first. Dirty paths:\n"
+            f"{formatted}"
+        )
+
+
+def default_branch_name(artifact: Path) -> str:
+    return f"improvement/{artifact.name}"
+
+
+def publish_artifact(args: argparse.Namespace) -> int:
+    root = find_repo_root(Path.cwd(), args.repo)
+    artifact = validate_artifact_path(root, args.artifact)
+    rel = artifact.relative_to(root)
+    rel_posix = rel.as_posix()
+    if not rel_posix.startswith("improvements/inbox/"):
+        raise SystemExit("Only improvements/inbox artifacts can be published as proposals.")
+
+    result = validate_artifact(argparse.Namespace(repo=str(root), artifact=str(artifact)))
+    if result != 0:
+        return result
+
+    ensure_only_artifact_is_dirty(root, artifact)
+
+    current = run_command(["git", "branch", "--show-current"], root).stdout.strip()
+    if current != args.base and not args.from_current:
+        raise SystemExit(
+            f"Refusing to publish from branch {current!r}. Switch to {args.base!r} "
+            "or pass --from-current if this is intentional."
+        )
+
+    branch = args.branch or default_branch_name(artifact)
+    message = args.message or f"Propose improvement: {artifact.name}"
+
+    run_command(["git", "switch", "-c", branch], root)
+    run_command(["git", "add", "--", rel_posix], root)
+    run_command(["git", "commit", "-m", message], root)
+    run_command(["git", "push", "-u", args.remote, branch], root)
+
+    pr_url = ""
+    if args.create_pr:
+        if shutil.which("gh") is None:
+            print("[WARN] gh CLI not found; branch was pushed but PR was not created.")
+        else:
+            body = (
+                "Proposal-only improvement artifact.\n\n"
+                f"Artifact: `{rel_posix}`\n\n"
+                "This PR publishes the request for later processing and does not "
+                "apply changes to canonical skills."
+            )
+            pr = run_command(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--base",
+                    args.base,
+                    "--head",
+                    branch,
+                    "--title",
+                    args.pr_title or message,
+                    "--body",
+                    body,
+                ],
+                root,
+                check=False,
+            )
+            if pr.returncode == 0:
+                pr_url = (pr.stdout or "").strip().splitlines()[-1]
+            else:
+                print("[WARN] Branch was pushed but PR creation failed.")
+
+    print(f"Artifact: {rel_posix}")
+    print(f"Branch: {branch}")
+    if pr_url:
+        print(f"PR: {pr_url}")
+    print("Status: proposal published, not applied")
+    return 0
+
+
 def move_artifact(args: argparse.Namespace) -> int:
     root = find_repo_root(Path.cwd(), args.repo)
     artifact = validate_artifact_path(root, args.artifact)
@@ -362,6 +473,17 @@ def main() -> int:
     validate = sub.add_parser("validate", parents=[common], help="Validate one artifact folder.")
     validate.add_argument("artifact")
     validate.set_defaults(func=validate_artifact)
+
+    publish = sub.add_parser("publish", parents=[common], help="Commit and push an inbox artifact as a proposal.")
+    publish.add_argument("artifact")
+    publish.add_argument("--branch", help="Proposal branch name. Defaults to improvement/<artifact-id>.")
+    publish.add_argument("--message", help="Commit message.")
+    publish.add_argument("--remote", default="origin")
+    publish.add_argument("--base", default="main")
+    publish.add_argument("--from-current", action="store_true", help="Allow publishing from the current branch.")
+    publish.add_argument("--create-pr", action="store_true", help="Create a GitHub PR with gh after pushing.")
+    publish.add_argument("--pr-title", help="GitHub PR title when --create-pr is used.")
+    publish.set_defaults(func=publish_artifact)
 
     move = sub.add_parser("move", parents=[common], help="Move an artifact to applied or rejected.")
     move.add_argument("artifact")

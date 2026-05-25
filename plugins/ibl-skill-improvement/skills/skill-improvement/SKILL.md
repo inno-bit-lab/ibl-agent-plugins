@@ -58,6 +58,10 @@ Use when the user says a skill failed and asks to improve it.
    preserving repo-relative paths.
 5. Do not apply the fix silently unless the user explicitly asked to apply it
    now.
+6. Validate the artifact.
+7. Unless the user explicitly asked for a local-only draft, publish the proposal
+   as a branch and PR that contains only `improvements/inbox/<artifact-id>/`.
+   Do not modify canonical `plugins/` paths in Capture Mode.
 
 Prefer the helper:
 
@@ -73,6 +77,18 @@ python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvemen
 
 If the skill is installed in an agent cache, run the same script from the
 installed skill folder instead of assuming the current workspace is this repo.
+
+After creating the artifact, validate and publish it:
+
+```powershell
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py validate improvements/inbox/<artifact-id>
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py publish improvements/inbox/<artifact-id> --create-pr
+```
+
+The `publish` command creates `improvement/<artifact-id>`, commits only the
+artifact folder, pushes the branch, and opens a proposal-only PR when `gh` is
+available. If there are unrelated dirty files, stop and report them instead of
+mixing them into the proposal.
 
 ### Process Mode
 
@@ -146,6 +162,7 @@ candidate/plugins/ibl-abp/skills/abp-feature-dev/SKILL.md
 When finishing, report:
 
 - artifact id
+- branch and PR URL for Capture Mode proposals
 - files changed
 - validation commands run
 - whether the artifact remains in `inbox`, moved to `applied`, or moved to
