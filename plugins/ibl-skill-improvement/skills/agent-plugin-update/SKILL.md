@@ -1,6 +1,6 @@
 ---
 name: agent-plugin-update
-description: 'Update the canonical IBL agent plugin marketplace checkout without requiring the user to remember its folder. Use when a user asks to update, pull, refresh, or sync IBL agent plugins, the ibl-agent-lugins repository, Codex marketplace snapshots, Claude Code, Antigravity, or OpenCode installs from GitHub.'
+description: 'Update the canonical IBL agent plugin marketplace checkout without requiring the user to remember its folder. Use when a user asks to update, pull, refresh, or sync IBL agent plugins, the ibl-agent-plugins repository, Codex marketplace snapshots, Claude Code, Antigravity, or OpenCode installs from GitHub.'
 ---
 
 # IBL Agent Plugin Update
@@ -16,7 +16,7 @@ checkout and, only when requested, refreshes Codex marketplace snapshots.
 The canonical repository is:
 
 ```text
-inno-bit-lab/ibl-agent-lugins
+inno-bit-lab/ibl-agent-plugins
 ```
 
 Prefer the helper script over asking the user to remember a path:
@@ -30,14 +30,14 @@ The helper discovers the checkout from:
 1. `IBL_AGENT_PLUGINS_HOME`
 2. The current working directory and its parents
 3. Common team checkout paths such as
-   `$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins`
+   `$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins`
 4. Linked plugin installs for Antigravity, Claude Code, and OpenCode
 
 If discovery fails, ask the user to clone the repository once, then rerun the
 helper:
 
 ```powershell
-gh repo clone inno-bit-lab/ibl-agent-lugins "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+gh repo clone inno-bit-lab/ibl-agent-plugins "$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins"
 ```
 
 ## Normal Update
@@ -64,7 +64,7 @@ discard, reset, or overwrite changes unless the user explicitly asks.
 If the user installed the marketplace with:
 
 ```powershell
-codex plugin marketplace add inno-bit-lab/ibl-agent-lugins --ref main
+codex plugin marketplace add inno-bit-lab/ibl-agent-plugins --ref main
 ```
 
 then the Git checkout used by Codex is managed by Codex. Refresh it with:

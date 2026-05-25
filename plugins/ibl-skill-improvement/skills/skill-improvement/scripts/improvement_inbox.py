@@ -9,8 +9,9 @@ from datetime import datetime
 from pathlib import Path
 
 
-REPO_NAME = "ibl-agent-lugins"
-GITHUB_REPO = "inno-bit-lab/ibl-agent-lugins"
+REPO_NAME = "ibl-agent-plugins"
+LEGACY_REPO_NAME = "ibl-agent-lugins"
+GITHUB_REPO = "inno-bit-lab/ibl-agent-plugins"
 PLUGIN_NAMES = ("ibl-abp", "ibl-skill-improvement")
 REQUIRED_FILES = ("problem.md", "improvement.md", "modified-resources.md", "validation.md")
 REQUIRED_DIRS = ("candidate", "attachments")
@@ -74,18 +75,20 @@ def add_candidate(candidates: list[Path], seen: set[Path], path: Path) -> None:
 def common_checkout_paths() -> list[Path]:
     home = Path.home()
     paths = [
-        home / "agent-marketplaces" / "ibl-agent-lugins",
-        home / "agent-marketplaces" / "ibl-agent-plugins",
-        home / "source" / "repos" / "ibl-agent-lugins",
-        home / "src" / "ibl-agent-lugins",
+        home / "agent-marketplaces" / REPO_NAME,
+        home / "agent-marketplaces" / LEGACY_REPO_NAME,
+        home / "source" / "repos" / REPO_NAME,
+        home / "source" / "repos" / LEGACY_REPO_NAME,
+        home / "src" / REPO_NAME,
+        home / "src" / LEGACY_REPO_NAME,
     ]
 
     userprofile = os.environ.get("USERPROFILE")
     if userprofile:
         base = Path(userprofile)
         paths.extend([
-            base / "agent-marketplaces" / "ibl-agent-lugins",
-            base / "agent-marketplaces" / "ibl-agent-plugins",
+            base / "agent-marketplaces" / REPO_NAME,
+            base / "agent-marketplaces" / LEGACY_REPO_NAME,
         ])
     return paths
 
@@ -453,7 +456,7 @@ def move_artifact(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create and validate skill improvement inbox artifacts.")
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--repo", help="Path to the canonical ibl-agent-lugins checkout.")
+    common.add_argument("--repo", help="Path to the canonical ibl-agent-plugins checkout.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     new = sub.add_parser("new", parents=[common], help="Create an improvement artifact in improvements/inbox.")

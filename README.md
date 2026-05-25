@@ -122,7 +122,7 @@ Il canale di update del team è GitHub. Se il repo è già clonato, il fallback
 manuale resta:
 
 ```powershell
-cd "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+cd "$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins"
 git pull --ff-only
 ```
 
@@ -141,7 +141,7 @@ Claude Code o OpenCode e, se configurato, `IBL_AGENT_PLUGINS_HOME`.
 Per Codex, se il marketplace è stato aggiunto direttamente da GitHub:
 
 ```powershell
-codex plugin marketplace add inno-bit-lab/ibl-agent-lugins --ref main
+codex plugin marketplace add inno-bit-lab/ibl-agent-plugins --ref main
 ```
 
 la snapshot Codex si aggiorna con:
@@ -166,11 +166,69 @@ Questo repository non installa nulla automaticamente. Gli script sotto `tools/`
 sono pensati per essere lanciati esplicitamente quando si vuole materializzare
 il plugin o le skill in una piattaforma.
 
-Esempi:
+### Codex
+
+Installazione da marketplace GitHub:
+
+```powershell
+codex plugin marketplace add inno-bit-lab/ibl-agent-plugins --ref main
+codex plugin add ibl-abp@ibl-agent-plugins
+codex plugin add ibl-skill-improvement@ibl-agent-plugins
+```
+
+Aggiornamento:
+
+```powershell
+codex plugin marketplace upgrade
+codex plugin add ibl-abp@ibl-agent-plugins
+codex plugin add ibl-skill-improvement@ibl-agent-plugins
+```
+
+Disinstallazione:
+
+```powershell
+codex plugin remove ibl-abp@ibl-agent-plugins
+codex plugin remove ibl-skill-improvement@ibl-agent-plugins
+codex plugin marketplace remove ibl-agent-plugins
+```
+
+Installazione locale dal checkout, utile per sviluppo:
 
 ```powershell
 python tools/install-plugin.py codex --plugin ibl-abp --scope workspace
-python tools/install-plugin.py opencode --plugin ibl-abp --scope workspace
+python tools/install-plugin.py codex --plugin ibl-skill-improvement --scope workspace
+```
+
+### Claude Code
+
+Installazione da marketplace GitHub:
+
+```powershell
+claude plugin marketplace add inno-bit-lab/ibl-agent-plugins
+claude plugin install ibl-abp@ibl-agent-plugins
+claude plugin install ibl-skill-improvement@ibl-agent-plugins
+```
+
+Aggiornamento:
+
+```powershell
+claude plugin marketplace update ibl-agent-plugins
+claude plugin update ibl-abp@ibl-agent-plugins
+claude plugin update ibl-skill-improvement@ibl-agent-plugins
+```
+
+Disinstallazione:
+
+```powershell
+claude plugin uninstall ibl-abp@ibl-agent-plugins -y
+claude plugin uninstall ibl-skill-improvement@ibl-agent-plugins -y
+claude plugin marketplace remove ibl-agent-plugins
+```
+
+Installazione locale dal checkout, utile per sviluppo:
+
+```powershell
+python tools/install-plugin.py claude --plugin ibl-abp --scope workspace
 python tools/install-plugin.py claude --plugin ibl-skill-improvement --scope workspace
 ```
 
@@ -226,6 +284,62 @@ junction; usa `--strategy copy` se vuoi una copia congelata senza link al repo.
 Per installazioni team/globali usare `--scope global` solo quando si vuole
 aggiornare esplicitamente l'ambiente dell'agent.
 
+Disinstallazione globale:
+
+```powershell
+Remove-Item -LiteralPath "$env:USERPROFILE\.gemini\config\plugins\ibl-abp" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.gemini\config\plugins\ibl-skill-improvement" -Force
+```
+
+Disinstallazione workspace:
+
+```powershell
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.agents\plugins\ibl-abp" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.agents\plugins\ibl-skill-improvement" -Force
+```
+
+### OpenCode
+
+OpenCode consuma le singole skill. Installazione globale:
+
+```powershell
+python tools/install-plugin.py opencode --plugin ibl-abp --scope global --strategy link
+python tools/install-plugin.py opencode --plugin ibl-skill-improvement --scope global --strategy link
+```
+
+Installazione workspace:
+
+```powershell
+python tools/install-plugin.py opencode --plugin ibl-abp --scope workspace --workspace C:\projects\my-abp-project --strategy link
+python tools/install-plugin.py opencode --plugin ibl-skill-improvement --scope workspace --workspace C:\projects\my-abp-project --strategy link
+```
+
+Disinstallazione globale:
+
+```powershell
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-core" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-feature-dev" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-mongodb" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-multitenancy" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-react-ui" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\abp-testing" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\agent-plugin-update" -Force
+Remove-Item -LiteralPath "$env:USERPROFILE\.config\opencode\skills\skill-improvement" -Force
+```
+
+Disinstallazione workspace:
+
+```powershell
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-core" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-feature-dev" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-mongodb" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-multitenancy" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-react-ui" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\abp-testing" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\agent-plugin-update" -Force
+Remove-Item -LiteralPath "C:\projects\my-abp-project\.opencode\skills\skill-improvement" -Force
+```
+
 ## Validazione
 
 Prima di proporre o mergiare modifiche:
@@ -238,7 +352,7 @@ python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvemen
 Se il repo canonico non è nella directory corrente:
 
 ```powershell
-python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py list --repo "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+python plugins/ibl-skill-improvement/skills/skill-improvement/scripts/improvement_inbox.py list --repo "$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins"
 ```
 
 Per validare i manifest Codex:

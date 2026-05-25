@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 
-REPO_NAME = "ibl-agent-lugins"
-GITHUB_REPO = "inno-bit-lab/ibl-agent-lugins"
+REPO_NAME = "ibl-agent-plugins"
+LEGACY_REPO_NAME = "ibl-agent-lugins"
+GITHUB_REPO = "inno-bit-lab/ibl-agent-plugins"
 PLUGIN_NAMES = ("ibl-abp", "ibl-skill-improvement")
 
 
@@ -103,18 +104,20 @@ def add_candidate(candidates: list[Path], seen: set[Path], path: Path) -> None:
 def common_checkout_paths() -> list[Path]:
     home = Path.home()
     paths = [
-        home / "agent-marketplaces" / "ibl-agent-lugins",
-        home / "agent-marketplaces" / "ibl-agent-plugins",
-        home / "source" / "repos" / "ibl-agent-lugins",
-        home / "src" / "ibl-agent-lugins",
+        home / "agent-marketplaces" / REPO_NAME,
+        home / "agent-marketplaces" / LEGACY_REPO_NAME,
+        home / "source" / "repos" / REPO_NAME,
+        home / "source" / "repos" / LEGACY_REPO_NAME,
+        home / "src" / REPO_NAME,
+        home / "src" / LEGACY_REPO_NAME,
     ]
 
     userprofile = os.environ.get("USERPROFILE")
     if userprofile:
         base = Path(userprofile)
         paths.extend([
-            base / "agent-marketplaces" / "ibl-agent-lugins",
-            base / "agent-marketplaces" / "ibl-agent-plugins",
+            base / "agent-marketplaces" / REPO_NAME,
+            base / "agent-marketplaces" / LEGACY_REPO_NAME,
         ])
     return paths
 
@@ -224,7 +227,7 @@ def codex_marketplace_upgrade(dry_run: bool) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Update the canonical IBL agent plugins checkout.")
-    parser.add_argument("--repo", help="Explicit path to the ibl-agent-lugins checkout.")
+    parser.add_argument("--repo", help="Explicit path to the ibl-agent-plugins checkout.")
     parser.add_argument("--validate", action="store_true", help="Run tools/validate-plugin.py after update.")
     parser.add_argument("--allow-dirty", action="store_true", help="Allow git pull when the checkout has local changes.")
     parser.add_argument("--skip-pull", action="store_true", help="Skip git pull and only run requested extra actions.")

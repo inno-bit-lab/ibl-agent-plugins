@@ -24,21 +24,21 @@ repository from:
 
 1. `IBL_AGENT_PLUGINS_HOME`, only if the user or team explicitly configured it
 2. The current working directory and its parents
-3. `$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins`
+3. `$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins`
 4. Linked plugin installs for Antigravity, Claude Code, and OpenCode
 
 If discovery fails, do not write into the installed cache. Ask the user to clone
 the repository once:
 
 ```powershell
-gh repo clone inno-bit-lab/ibl-agent-lugins "$env:USERPROFILE\agent-marketplaces\ibl-agent-lugins"
+gh repo clone inno-bit-lab/ibl-agent-plugins "$env:USERPROFILE\agent-marketplaces\ibl-agent-plugins"
 ```
 
 For non-standard locations, pass `--repo` to the helper subcommand or ask the
 user to define `IBL_AGENT_PLUGINS_HOME` persistently:
 
 ```powershell
-python <this-skill-folder>\scripts\improvement_inbox.py list --repo C:\path\to\ibl-agent-lugins
+python <this-skill-folder>\scripts\improvement_inbox.py list --repo C:\path\to\ibl-agent-plugins
 ```
 
 ## Two Modes
