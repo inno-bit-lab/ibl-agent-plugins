@@ -11,4 +11,3 @@ Add an abp-module-architecture skill with entity ownership rules, a migration ch
 
 
 ## Risks
-
