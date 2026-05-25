@@ -2,17 +2,14 @@
 
 ## Checks Run
 
-- [ ] Skill frontmatter validated
-- [ ] Plugin manifest validated
-- [ ] Relevant scripts compiled or tested
-- [ ] Regression evidence added
+- [x] Improvement artifact validated
 
 ## Commands
 
 ```powershell
-python tools/validate-plugin.py
+python C:\Users\Innotech\.gemini\config\plugins\ibl-skill-improvement\skills\skill-improvement\scripts\improvement_inbox.py validate improvements/inbox/20260525-174322-antigravity-abp-testing-mongodb-background-services-like-mongosandbox-cause-coverlet-col
 ```
 
 ## Result
 
-Pending.
+Proposal artifact validated; implementation not applied.
