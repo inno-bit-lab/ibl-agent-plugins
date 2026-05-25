@@ -1,0 +1,11 @@
+{
+  "name": "ibl-skill-improvement",
+  "displayName": "IBL Skill Improvement",
+  "version": "0.1.0",
+  "description": "IBL workflow for capturing, reviewing, and applying reusable improvements to agent skills.",
+  "author": {
+    "name": "IBL"
+  },
+  "license": "UNLICENSED",
+  "skills": "./skills/"
+}

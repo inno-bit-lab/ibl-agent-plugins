@@ -1,0 +1,66 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Shouldly;
+using {{ROOT_NAMESPACE}}.Entities.{{FEATURE_PLURAL}};
+using {{ROOT_NAMESPACE}}.Services.Dtos.{{FEATURE_PLURAL}};
+using {{ROOT_NAMESPACE}}.Services.{{FEATURE_PLURAL}};
+using Volo.Abp;
+using Volo.Abp.Application.Dtos;
+using Volo.Abp.Validation;
+using Xunit;
+
+namespace {{ROOT_NAMESPACE}}.{{FEATURE_PLURAL}};
+
+public class {{ENTITY_NAME}}AppService_Tests : {{PROJECT_NAME}}ApplicationTestBase
+{
+    private readonly I{{ENTITY_NAME}}AppService _{{ENTITY_LOWER}}AppService;
+
+    public {{ENTITY_NAME}}AppService_Tests()
+    {
+        _{{ENTITY_LOWER}}AppService = GetRequiredService<I{{ENTITY_NAME}}AppService>();
+    }
+
+    [Fact]
+    public async Task Should_Get_List()
+    {
+        var result = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input());
+
+        result.ShouldNotBeNull();
+        result.Items.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Should_Create_{{ENTITY_NAME}}()
+    {
+        var input = new CreateUpdate{{ENTITY_NAME}}Dto
+        {
+            // TODO: fill in valid property values
+        };
+
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(input);
+
+        created.Id.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task Should_Throw_Validation_For_Invalid_Input()
+    {
+        var input = new CreateUpdate{{ENTITY_NAME}}Dto
+        {
+            // TODO: leave required fields unset to trigger validation
+        };
+
+        await Should.ThrowAsync<AbpValidationException>(async () =>
+        {
+            await _{{ENTITY_LOWER}}AppService.CreateAsync(input);
+        });
+    }
+
+    {{LIFECYCLE_TESTS}}
+
+    {{MULTITENANCY_TESTS}}
+
+    {{BULK_TESTS}}
+}

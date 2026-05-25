@@ -1,0 +1,11 @@
+{
+  "name": "ibl-abp",
+  "displayName": "IBL ABP",
+  "version": "0.1.0",
+  "description": "IBL ABP Framework skill bundle for backend, MongoDB, multitenancy, React UI, and testing workflows.",
+  "author": {
+    "name": "IBL"
+  },
+  "license": "UNLICENSED",
+  "skills": "./skills/"
+}

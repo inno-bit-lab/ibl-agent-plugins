@@ -1,0 +1,32 @@
+{
+  "name": "ibl-agent-plugins",
+  "interface": {
+    "displayName": "IBL Agent Plugins"
+  },
+  "plugins": [
+    {
+      "name": "ibl-abp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ibl-abp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "ibl-skill-improvement",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ibl-skill-improvement"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

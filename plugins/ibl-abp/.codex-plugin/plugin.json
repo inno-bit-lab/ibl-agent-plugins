@@ -1,0 +1,33 @@
+{
+  "name": "ibl-abp",
+  "version": "0.1.0",
+  "description": "IBL ABP Framework skill bundle for backend, MongoDB, multitenancy, React UI, and testing workflows.",
+  "author": {
+    "name": "IBL"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "abp",
+    "dotnet",
+    "mongodb",
+    "react",
+    "enterprise-skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "IBL ABP",
+    "shortDescription": "ABP Framework workflows for IBL projects.",
+    "longDescription": "IBL ABP packages reusable agent skills for ABP Framework projects: core conventions, feature scaffolding, MongoDB setup, multitenancy, React UI wiring, and integration testing.",
+    "developerName": "IBL",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Add an ABP entity with DTOs and AppService.",
+      "Wire an ABP entity into MongoDB.",
+      "Create the React CRUD UI for an ABP feature."
+    ]
+  }
+}

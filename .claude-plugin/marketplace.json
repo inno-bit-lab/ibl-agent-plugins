@@ -1,0 +1,19 @@
+{
+  "name": "ibl-agent-plugins",
+  "description": "IBL internal plugin marketplace for agent skills.",
+  "owner": {
+    "name": "IBL"
+  },
+  "plugins": [
+    {
+      "name": "ibl-abp",
+      "source": "./plugins/ibl-abp",
+      "description": "IBL ABP Framework workflows for backend, MongoDB, multitenancy, React UI, and testing."
+    },
+    {
+      "name": "ibl-skill-improvement",
+      "source": "./plugins/ibl-skill-improvement",
+      "description": "IBL workflow for capturing, reviewing, and applying reusable improvements to agent skills."
+    }
+  ]
+}
