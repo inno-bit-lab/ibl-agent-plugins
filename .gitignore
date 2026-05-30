@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
 .opencode/
-.claude/plugins/
+.claude/
 .agents/tmp/
+session-handoff-workspace/

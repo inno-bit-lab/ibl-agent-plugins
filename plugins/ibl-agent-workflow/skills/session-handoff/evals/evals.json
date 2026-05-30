@@ -1,0 +1,22 @@
+{
+  "skill_name": "session-handoff",
+  "evals": [
+    {
+      "id": 0,
+      "name": "english-call-coach-handoff",
+      "prompt": "Hand off a prior 'english-call-coach' work session (an ~8MB Claude Code .jsonl transcript that is NOT in the agent's context) to a fresh agent. No focus arguments. Write the handoff and save it.",
+      "input": "C:\\Users\\Innotech\\.claude\\projects\\D--english-call-coach\\5ce6f6b2-caba-4457-966e-ce5fcbf0c7cc.jsonl",
+      "assertions": [
+        {"text": "Handled the ~8MB session file without dumping it raw into context (used the skill's digest step or otherwise condensed it)", "kind": "process"},
+        {"text": "The handoff was saved to the OS temp directory (a path under the system temp dir), not into the workspace/repo", "kind": "behavior"},
+        {"text": "Document starts with YAML frontmatter including doc_type: session-handoff and a non-empty next_action field", "kind": "structure"},
+        {"text": "A concrete, imperative 'Next action' appears near the top naming a specific file/command — not a vague 'continue the work'", "kind": "quality"},
+        {"text": "Contains a 'Verify first' startup block telling the next agent to run git status / build / tests and reconcile before trusting the doc", "kind": "structure"},
+        {"text": "Contains a 'Suggested skills' section that names skills (plugin + name) each with a fallback", "kind": "structure"},
+        {"text": "Contains a 'Failed approaches / dead-ends' section (or explicitly states none were encountered)", "kind": "structure"},
+        {"text": "No live secrets present: any credentials/keys appear only as typed [REDACTED:...] placeholders, and env var NAMES are kept while VALUES are dropped", "kind": "safety"},
+        {"text": "Existing artifacts (the spec under docs/specs/, CLAUDE.md, commits) are referenced by path/URL, not copied verbatim in full", "kind": "quality"}
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@ sono adattatori per host diversi; il sorgente autorevole resta questo repo.
 
 - `plugins/ibl-abp` - skill ABP Framework per backend .NET, MongoDB, multitenancy, React UI e test.
 - `plugins/ibl-skill-improvement` - skill per catturare, revisionare, applicare improvement e aggiornare il checkout dei plugin aziendali.
+- `plugins/ibl-agent-workflow` - skill di workflow cross-agent: scrivere un documento di handoff di sessione (redatto, salvato nella temp dir del SO) perché un agente fresco possa continuare il lavoro.
 
 ## Layout
 

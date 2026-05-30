@@ -14,6 +14,11 @@
       "name": "ibl-skill-improvement",
       "source": "./plugins/ibl-skill-improvement",
       "description": "IBL workflow for capturing, reviewing, applying, and updating reusable agent skills."
+    },
+    {
+      "name": "ibl-agent-workflow",
+      "source": "./plugins/ibl-agent-workflow",
+      "description": "IBL cross-agent workflow skills: write a session-handoff document so a fresh agent can continue the work."
     }
   ]
 }
