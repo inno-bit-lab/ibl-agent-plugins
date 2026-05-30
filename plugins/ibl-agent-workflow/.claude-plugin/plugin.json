@@ -1,0 +1,11 @@
+{
+  "name": "ibl-agent-workflow",
+  "displayName": "IBL Agent Workflow",
+  "version": "0.2.0",
+  "description": "IBL cross-agent workflow skills: write a session-handoff document so a fresh agent can continue the work.",
+  "author": {
+    "name": "IBL"
+  },
+  "license": "UNLICENSED",
+  "skills": "./skills/"
+}

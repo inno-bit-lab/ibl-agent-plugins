@@ -21,6 +21,9 @@ PLUGIN_SKILLS = {
         "agent-plugin-update",
         "skill-improvement",
     },
+    "ibl-agent-workflow": {
+        "session-handoff",
+    },
 }
 
 
