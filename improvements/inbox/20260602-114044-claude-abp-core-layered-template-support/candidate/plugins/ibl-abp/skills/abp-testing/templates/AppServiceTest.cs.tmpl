@@ -1,0 +1,130 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Shouldly;
+{{TEST_USINGS}}
+using Volo.Abp;
+using Volo.Abp.Application.Dtos;
+using Volo.Abp.Validation;
+using Xunit;
+
+namespace {{ROOT_NAMESPACE}}.{{FEATURE_PLURAL}};
+
+public class {{ENTITY_NAME}}AppService_Tests : {{TEST_BASE_CLASS}}
+{
+    private readonly I{{ENTITY_NAME}}AppService _{{ENTITY_LOWER}}AppService;
+
+    public {{ENTITY_NAME}}AppService_Tests()
+    {
+        _{{ENTITY_LOWER}}AppService = GetRequiredService<I{{ENTITY_NAME}}AppService>();
+    }
+
+    [Fact]
+    public async Task Should_Get_List()
+    {
+        var result = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input());
+
+        result.ShouldNotBeNull();
+        result.Items.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Should_Get_List_With_All_Filters()
+    {
+        // TODO: create matching and non-matching records.
+        // Populate every supported filter on Get{{FEATURE_PLURAL}}Input so
+        // ApplyFilters / ApplyBaseFilters branches are covered together.
+        var result = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input
+            {
+                // TODO: filter = ..., status = ..., dateFrom = ..., etc.
+            });
+
+        result.ShouldNotBeNull();
+        // TODO: assert matching rows are present and non-matching rows absent.
+    }
+
+    [Fact]
+    public async Task Should_Get_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in valid property values
+            });
+
+        var result = await _{{ENTITY_LOWER}}AppService.GetAsync(created.Id);
+
+        result.Id.ShouldBe(created.Id);
+    }
+
+    [Fact]
+    public async Task Should_Create_{{ENTITY_NAME}}()
+    {
+        var input = new CreateUpdate{{ENTITY_NAME}}Dto
+        {
+            // TODO: fill in valid property values
+        };
+
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(input);
+
+        created.Id.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task Should_Update_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in initial valid property values
+            });
+
+        var updated = await _{{ENTITY_LOWER}}AppService.UpdateAsync(
+            created.Id,
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in changed valid property values
+            });
+
+        updated.Id.ShouldBe(created.Id);
+        // TODO: assert the changed fields.
+    }
+
+    [Fact]
+    public async Task Should_Delete_{{ENTITY_NAME}}()
+    {
+        var created = await _{{ENTITY_LOWER}}AppService.CreateAsync(
+            new CreateUpdate{{ENTITY_NAME}}Dto
+            {
+                // TODO: fill in valid property values
+            });
+
+        await _{{ENTITY_LOWER}}AppService.DeleteAsync(created.Id);
+
+        var list = await _{{ENTITY_LOWER}}AppService.GetListAsync(
+            new Get{{FEATURE_PLURAL}}Input());
+        list.Items.ShouldNotContain(x => x.Id == created.Id);
+    }
+
+    [Fact]
+    public async Task Should_Throw_Validation_For_Invalid_Input()
+    {
+        var input = new CreateUpdate{{ENTITY_NAME}}Dto
+        {
+            // TODO: leave required fields unset to trigger validation
+        };
+
+        await Should.ThrowAsync<AbpValidationException>(async () =>
+        {
+            await _{{ENTITY_LOWER}}AppService.CreateAsync(input);
+        });
+    }
+
+    {{LIFECYCLE_TESTS}}
+
+    {{MULTITENANCY_TESTS}}
+
+    {{BULK_TESTS}}
+}
