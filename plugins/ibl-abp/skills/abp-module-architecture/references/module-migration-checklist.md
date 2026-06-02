@@ -2,6 +2,26 @@
 
 Use this when moving existing host resources into ABP modules.
 
+The analyzer auto-detects the template, so the steps below apply to both. The
+difference is where each concern lives. In **nolayers** a bounded context's
+resources sit in one project under concern-named folders (`Entities/`,
+`Services/`, `Permissions/`, `Data/`), namespaced `Root.Entities.{Plural}`,
+`Root.Services.{Plural}`, etc. In **layered** the same context fans out across
+separate layer projects with a flat `Root.{Plural}` namespace, so every layer's
+slice of the aggregate moves together:
+
+| Layer project | Aggregate slice it holds |
+|---|---|
+| `*.Domain/{Plural}/` | entity, repository interface, domain service, data seed |
+| `*.Domain.Shared/` | enums, constants, error codes, ETOs, localization |
+| `*.Application.Contracts/` | DTOs, AppService interface, permissions |
+| `*.Application/` | AppService implementation, object mapper |
+| `*.MongoDB/` | Mongo context, repository implementation |
+
+Move the matching tests (`*.Domain.Tests`, `*.Application.Tests`,
+`*.MongoDB.Tests`) and React UI alongside them. `abp-core`'s `resolve_artifact()`
+is the source of truth for these paths and namespaces.
+
 ## 1. Inventory
 
 Run:
@@ -21,6 +41,10 @@ Capture:
 - `Localization/**`
 - tests
 - React pages, API clients, components, hooks, route/menu entries
+
+In a layered solution these globs resolve against the layer projects listed
+above rather than one host project; the analyzer reports them grouped per
+concern regardless.
 
 ## 2. Backend Move
 

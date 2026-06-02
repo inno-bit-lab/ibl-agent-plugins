@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Shouldly;
-using {{ROOT_NAMESPACE}}.Entities.{{FEATURE_PLURAL}};
-using {{ROOT_NAMESPACE}}.Services.Dtos.{{FEATURE_PLURAL}};
-using {{ROOT_NAMESPACE}}.Services.{{FEATURE_PLURAL}};
+{{TEST_USINGS}}
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Validation;
@@ -12,7 +10,7 @@ using Xunit;
 
 namespace {{ROOT_NAMESPACE}}.{{FEATURE_PLURAL}};
 
-public class {{ENTITY_NAME}}AppService_Tests : {{PROJECT_NAME}}ApplicationTestBase
+public class {{ENTITY_NAME}}AppService_Tests : {{TEST_BASE_CLASS}}
 {
     private readonly I{{ENTITY_NAME}}AppService _{{ENTITY_LOWER}}AppService;
 

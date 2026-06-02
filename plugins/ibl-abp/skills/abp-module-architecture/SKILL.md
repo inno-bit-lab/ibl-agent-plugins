@@ -9,6 +9,14 @@ Use this skill before adding, moving, or splitting ABP features in a modular
 solution. The goal is to keep bounded contexts coherent across backend,
 MongoDB, permissions, localization, tests, and React UI.
 
+This guidance and `scripts/analyze_module_ownership.py` work for both ABP
+templates and auto-detect which one is in play: **nolayers** (single project /
+Simple Monolith / IBL360), where a feature's resources sit together under
+`Entities/`, `Services/`, `Permissions/`, `Data/`; and **layered** (DDD), where
+the same bounded context fans out across separate layer projects (`*.Domain`,
+`*.Domain.Shared`, `*.Application.Contracts`, `*.Application`, `*.MongoDB`). The
+placement rules are the same either way; only where the files land differs.
+
 ## First Decision
 
 Before writing files, answer one question:
@@ -37,6 +45,9 @@ because it is technically easy.
 3. **Plan the full resource move**
    - Backend contracts, domain/application code, Mongo context/indexes,
      permissions, error codes, localization, tests, and React UI move together.
+   - In a layered solution these concerns live in different layer projects, so
+     the aggregate's slice in each project (`*.Domain`, `*.Domain.Shared`,
+     `*.Application.Contracts`, `*.Application`, `*.MongoDB`) moves as one unit.
    - Read `references/module-migration-checklist.md` before editing.
 4. **Validate runtime behavior**
    - Build backend and frontend.

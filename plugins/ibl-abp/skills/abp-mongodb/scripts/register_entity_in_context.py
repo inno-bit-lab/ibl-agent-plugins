@@ -40,7 +40,7 @@ _ABP_CORE_SCRIPTS = str(Path(__file__).resolve().parents[2] / "abp-core" / "scri
 if _ABP_CORE_SCRIPTS not in sys.path:
     sys.path.insert(0, _ABP_CORE_SCRIPTS)
 
-from abp_context import load_or_prompt_config  # noqa: E402
+from abp_context import load_or_prompt_config, resolve_artifact  # noqa: E402
 
 
 def _prompt(label: str, default: str = "") -> str:
@@ -76,6 +76,12 @@ def _find_module_file(ctx) -> Path | None:
 def _ensure_using(text: str, namespace: str) -> tuple[str, bool]:
     using_line = f"using {namespace};"
     if using_line in text:
+        return text, False
+    # Skip a self-import: in the layered template the MongoDbContext, the entity
+    # registration target and (sometimes) the repository share a namespace, so
+    # `using {own-namespace};` would be a redundant self-reference.
+    own = re.search(r"^namespace\s+([\w.]+)\s*;", text, re.MULTILINE)
+    if own and own.group(1) == namespace:
         return text, False
     lines = text.splitlines()
     last_using = -1
@@ -267,7 +273,9 @@ def main() -> int:
         print("Entity is required.", file=sys.stderr)
         return 2
     plural = args.plural or _prompt("Plural / collection name", entity + "s")
-    default_ns = f"{ctx.root_namespace}.Entities.{plural}" if ctx.root_namespace else ""
+    # Template-correct default: flat `Root.Plural` in layered, `Root.Entities.Plural`
+    # in nolayers — straight from the shared resolver.
+    default_ns = resolve_artifact(ctx, "entity", plural).namespace if ctx.root_namespace else ""
     entity_ns = args.entity_namespace or _prompt("Entity namespace", default_ns)
     if not entity_ns:
         print("Entity namespace is required.", file=sys.stderr)
@@ -293,7 +301,7 @@ def main() -> int:
     if args.register_repository:
         repo_name = args.repository_name or f"Mongo{entity}Repository"
         repo_ns = args.repository_namespace or (
-            f"{ctx.root_namespace}.Data.{plural}" if ctx.root_namespace else ""
+            resolve_artifact(ctx, "repo_impl", plural).namespace if ctx.root_namespace else ""
         )
         if not repo_ns:
             print("--repository-namespace required for --register-repository",

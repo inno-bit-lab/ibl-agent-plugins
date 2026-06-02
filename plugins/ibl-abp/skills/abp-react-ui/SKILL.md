@@ -16,6 +16,13 @@ conventions: typed `Get{Entities}Input` filters, enum names as strings on
 the wire, multi-tenant permissions, name-based localization keys,
 case-insensitive `.ToLower()` search.
 
+These React patterns are the same whether the backend uses the nolayers
+(single-project) or the layered ABP template. ABP generates the same REST
+endpoints (`/api/app/{entity-kebab}/...`) and DTO shapes from the AppService
+either way, so the API client, CRUD page, routing, sidebar, and i18n are
+unchanged — the only backend-shaped thing the UI consumes is the generated
+API/DTO contract, which is identical across templates.
+
 If the backend feature belongs to a module, use `abp-module-architecture`
 before editing React. Module-owned pages, API clients, and route/menu entries
 belong under that module's `react/src`; only reused components/primitives go

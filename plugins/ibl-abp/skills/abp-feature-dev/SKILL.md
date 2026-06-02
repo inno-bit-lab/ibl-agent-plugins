@@ -286,42 +286,62 @@ final validation.
 snippet + (optional) custom repository + (optional) lifecycle method + (optional)
 bulk/excel/lookup endpoints + Mapperly + localization snippets.
 
+### Solution template — where files land
+
+The scaffolder auto-detects the solution template (`abp_context.py`) and places
+every file accordingly. **You don't choose paths or namespaces by hand** — the
+file→project→namespace mapping lives in one place, `resolve_artifact()` in
+`abp-core/scripts/abp_context.py`, and both the scaffolder and `verify_feature.py`
+read from it. Two templates are supported:
+
+- **nolayers** (single-project / Simple Monolith — the IBL360 layout): one
+  project, layer expressed by folder + namespace segment
+  (`Entities/`, `Services/`, `Services/Dtos/`, `Data/`).
+- **layered** (DDD — IBLTermocasa and similar): separate projects
+  (`*.Domain`, `*.Domain.Shared`, `*.Application`, `*.Application.Contracts`,
+  `*.MongoDB`), with a **flat** `Root.Plural` namespace shared across the
+  aggregate's files. Persistence code is `Root.MongoDB`, permissions `Root.Permissions`.
+
 ### File layout produced
 
+**Single-project (nolayers):**
+
 ```
-{{PROJECT_ROOT}}/Entities/{Plural}/
-├── {Entity}.cs                       Rich AggregateRoot<Guid>
-├── {EnumName}.cs                     One per declared enum
-└── (optional) {Entity}Manager.cs     DomainService — only for cross-aggregate rules
-
-{{PROJECT_ROOT}}/Services/Dtos/{Plural}/
-├── {Entity}Dto.cs                    Output DTO
-├── CreateUpdate{Entity}Dto.cs        Input DTO (or split Create/Update if asked)
-├── Get{Entities}Input.cs             Typed filter input (smart filters)
-├── Change{Entity}StatusDto.cs        (only if lifecycle)
-├── {Entity}LookupDto.cs              (only if lookup endpoint)
-└── {Entity}ExcelDto.cs               (only if excel export)
-
-{{PROJECT_ROOT}}/Services/{Plural}/
-├── I{Entity}AppService.cs            Interface
-└── {Entity}AppService.cs             Implementation
-
-{{PROJECT_ROOT}}/Data/{Plural}/       (only if --custom-repository yes)
-├── I{Entity}Repository.cs            Custom repository interface
-└── Mongo{Entity}Repository.cs        MongoDB implementation (or Ef variant)
-
-{{PROJECT_ROOT}}/Ibl360DomainErrorCodes.cs   (only if lifecycle; merged if exists)
-
-{{PROJECT_ROOT}}/Entities/{Plural}/_review_artifacts/
-├── _permissions_snippet.txt          Merge into Permissions class & provider
-├── _mapper_snippet.txt               Merge into ObjectMapping/Mappers
-├── _localization_snippet.json        Merge into Localization/{Resource}/{lang}.json
-└── _next_steps.md                    Checklist for finalization
+{{PROJECT_ROOT}}/Entities/{Plural}/        {Entity}.cs, {EnumName}.cs, (opt) {Entity}Manager.cs
+{{PROJECT_ROOT}}/Services/Dtos/{Plural}/   {Entity}Dto, CreateUpdate{Entity}Dto, Get{Entities}Input,
+                                           (opt) Change{Entity}StatusDto / {Entity}LookupDto / {Entity}ExcelDto
+{{PROJECT_ROOT}}/Services/{Plural}/        I{Entity}AppService.cs, {Entity}AppService.cs
+{{PROJECT_ROOT}}/Data/{Plural}/            (only --custom-repository yes) I{Entity}Repository, Mongo{Entity}Repository
+{{PROJECT_ROOT}}/{{PROJECT_NAME}}DomainErrorCodes.cs   (only if lifecycle; merged if exists)
 ```
 
-The folder naming follows the existing project conventions — match what is
-already there (e.g. `Services/` vs `Application/` vs `Application.Contracts/`).
-The scaffolder reads existing entities to pick the right pattern.
+**Layered (DDD)** — same files, fanned out across projects (flat `Root.Plural` namespace):
+
+```
+{{DOMAIN_PROJECT}}/{Plural}/             {Entity}.cs, (opt) {Entity}Manager.cs, (opt) I{Entity}Repository.cs
+{{DOMAIN_SHARED_PROJECT}}/{Plural}/      {EnumName}.cs   ← enums live here so Contracts can reference them
+{{DOMAIN_SHARED_PROJECT}}/{{PROJECT_NAME}}DomainErrorCodes.cs   (only if lifecycle)
+{{CONTRACTS_PROJECT}}/{Plural}/          {Entity}Dto, CreateUpdate{Entity}Dto, Get{Entities}Input,
+                                         I{Entity}AppService.cs, (opt) Change/Lookup/Excel DTOs
+{{APPLICATION_PROJECT}}/{Plural}/        {Entity}AppService.cs
+{{DATA_PROJECT}}/MongoDb/{Plural}/       (only --custom-repository yes) Mongo{Entity}Repository.cs
+```
+
+> Why enums move to `Domain.Shared` in layered: `Application.Contracts` references
+> `Domain.Shared` but **not** `Domain`. A DTO's enum property must therefore live in
+> `Domain.Shared` or the contracts project won't compile. The entity (in `Domain`)
+> still sees it because `Domain` also references `Domain.Shared`. In nolayers it's one
+> project, so enums sit next to the entity.
+
+> Custom repository in layered: the interface lives in `Domain` and must stay free of
+> `Application.Contracts` types, so its layered variant takes a primitive `filterText`
+> instead of `Get{Entities}Input`. Per-field filtering stays in the AppService (the
+> ABP-idiomatic site). That's also why `--custom-repository auto` defaults to **no** in
+> layered — pass `--custom-repository yes` to force it.
+
+Review artifacts (`_permissions_snippet.txt`, `_mapper_snippet.txt`,
+`_localization_snippet.json`, `_next_steps.md`) are always written under
+`{Entity}'s folder`/`_review_artifacts/` for manual merge.
 
 ### Key arguments
 
@@ -414,9 +434,11 @@ mark a feature "done" until all of these are completed.
    now (the skill provides a template).
 
 5. **Merge the mapper snippet.** Read `_mapper_snippet.txt`, append the
-   Mapperly mapper(s) into `Ibl360Mappers.cs` (or whatever the project's
-   central mapper file is). If the project uses AutoMapper, use the
-   AutoMapper variant in the snippet instead.
+   Mapperly mapper(s) into the project's central `*Mappers.cs` partial — in
+   layered that's `{{PROJECT_NAME}}ApplicationMappers.cs` in the Application
+   project; in single-project it's `ObjectMapping/{{PROJECT_NAME}}Mappers.cs`.
+   If the project uses AutoMapper, use the AutoMapper variant in the snippet
+   instead.
 
 6. **Merge localization keys.** Read `_localization_snippet.json`, integrate
    into every project language file (typically `it.json`, `en.json`, etc.).
@@ -505,8 +527,10 @@ It checks:
 - `{Module}Permissions.{Plural}` constants exist and are wired in the provider
 - The Mapperly mapper class is present in the central mapper file
 - Localization keys exist in all language files (warns on missing translations)
-- Optional: `dotnet build` succeeds (with `-p:UseAppHost=false -t:Compile` so
-  the in-use `apphost.exe` lock doesn't block the build on Windows)
+- Optional: `dotnet build` succeeds. It builds the whole solution when a
+  solution file is present (so a layered solution's Domain / Application /
+  MongoDB projects are all covered), falling back to the single project
+  otherwise. Pass `--no-build` to skip.
 
 If backend tests were selected, also run:
 
@@ -619,6 +643,13 @@ failures, dangling controller, broken admin UI). Order matters.
 Walk this list. Delete each item only after the previous one is done,
 so the build catches anything you missed.
 
+> The folder paths below use the single-project (nolayers) layout. In a
+> **layered** solution the same files live in their respective projects — entity
+> in `*.Domain/{Plural}/`, DTOs + AppService interface in
+> `*.Application.Contracts/{Plural}/`, AppService impl in `*.Application/{Plural}/`,
+> enums + error codes in `*.Domain.Shared/`, custom repo impl in `*.MongoDB/`.
+> See the "File layout produced" table above for the full mapping.
+
 1. **`Localization/{ResourceName}/*.json`** — remove `Permission:{Plural}*`,
    `Menu:{Plural}`, `{Plural}`, `{Entity}`, `New{Entity}`, field labels not
    shared with other entities, enum value keys for any enum only this
@@ -726,8 +757,9 @@ you have three options:
 2. Pass `--public-setters` (the scaffolder flips them).
 3. For genuinely trivial CRUD entities, this is fine.
 
-The single-layer ABP template documentation explicitly allows public setters
-*"for trivial CRUD"*, but encapsulate the moment a business rule appears.
+ABP's own guidance explicitly allows public setters *"for trivial CRUD"*
+(true on both the single-layer and layered templates), but encapsulate the
+moment a business rule appears.
 
 ## Hard-won lessons (read once, internalize forever)
 

@@ -10,8 +10,15 @@ The generic `IRepository<TEntity, TKey>` covers all the standard cases:
 **named, reusable query** that the rest of the application should call by
 name (e.g. `FindByOrderNumberAsync`).
 
+The interface is the `repo_interface` artifact. It always lives in the
+**Domain** layer: nolayers → the single project under `Data/{Plural}/`, ns
+`{{ROOT_NAMESPACE}}.Data.{Plural}`; layered → the `*.Domain` project under
+`{Plural}/`, ns `{{ROOT_NAMESPACE}}.{Plural}`. Run
+`python <skills-root>/abp-core/scripts/abp_context.py --show-layout` for the
+exact path; `resolve_artifact(ctx, "repo_interface", plural)` is the source of truth.
+
 ```csharp
-// In your domain / single project
+// In the Domain layer (Data/{Plural}/ on nolayers, *.Domain/{Plural}/ on layered)
 public interface IBookRepository : IRepository<Book, Guid>
 {
     Task<Book?> FindByNameAsync(string name, CancellationToken ct = default);
@@ -19,7 +26,33 @@ public interface IBookRepository : IRepository<Book, Guid>
 }
 ```
 
+**Layered constraint — no input DTO in the interface signature.** The Domain
+layer cannot reference `Application.Contracts`, so a list query here takes
+**primitives** (`string? filterText` plus paging: `sorting`, `maxResultCount`,
+`skipCount`), never `Get{Plural}Input`. Per-field filtering stays in the
+AppService, which builds the predicate and calls the repository with the
+plain values. In nolayers everything is one project so passing the input DTO
+*compiles*, but keeping the primitive signature lets the same interface serve
+both templates:
+
+```csharp
+Task<List<Book>> GetListAsync(
+    string? filterText = null,
+    string? sorting = null,
+    int maxResultCount = int.MaxValue,
+    int skipCount = 0,
+    CancellationToken ct = default);
+```
+
 ## Implementation
+
+The implementation is the `repo_impl` artifact: nolayers → the single project
+under `Data/{Plural}/`, ns `{{ROOT_NAMESPACE}}.Data.{Plural}`; layered → the
+`*.MongoDB` project (`{{DATA_PROJECT}}`) under `MongoDb/{Plural}/`, ns
+`{{ROOT_NAMESPACE}}.MongoDB`. The class name convention is `Mongo{Entity}Repository`
+on layered (e.g. `MongoBookRepository`). The base class is identical on both —
+`MongoDbRepository<{{ROOT_NAMESPACE}}MongoDbContext, {Entity}, Guid>` — only the
+context's namespace differs (`.Data` vs `.MongoDB`), so add the matching `using`.
 
 ```csharp
 public class BookRepository
@@ -90,7 +123,8 @@ database. This is the single most common MongoDB+ABP bug.
 
 ## Registering repositories
 
-In your `*MongoDbModule.cs`:
+In your `*MongoDbModule.cs` (the `{{DATA_PROJECT}}` project on layered, the
+single project on nolayers — it's wherever `AddMongoDbContext` already lives):
 
 ```csharp
 context.Services.AddMongoDbContext<{{ROOT_NAMESPACE}}MongoDbContext>(options =>
@@ -103,6 +137,10 @@ context.Services.AddMongoDbContext<{{ROOT_NAMESPACE}}MongoDbContext>(options =>
     options.AddRepository<Book, BookRepository>();   // custom impl
 });
 ```
+
+`register_entity_in_context.py --register-repository` inserts this line for you
+and finds the module automatically; the repo `using` it adds is template-correct
+(`{{ROOT_NAMESPACE}}.Data.{Plural}` on nolayers, `{{ROOT_NAMESPACE}}.MongoDB` on layered).
 
 ## Indexes
 

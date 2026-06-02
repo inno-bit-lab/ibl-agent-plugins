@@ -51,13 +51,24 @@ Key things to remember:
 
 ### Adding IMultiTenant to an existing entity
 
+The multi-tenancy logic is identical on both ABP templates; only the entity
+file location follows the active template. In **nolayers** the entity lives in
+`{Project}/Entities/{Plural}/{Entity}.cs`; in **layered** it's in
+`{Project}.Domain/{Plural}/{Entity}.cs`. The script locates and edits the entity
+file in place regardless, so the same command works on both — just point
+`--entity-file` at the right path.
+
 ```bash
 # Interactive
 python <skills-root>/abp-multitenancy/scripts/add_multitenant_to_entity.py
 
-# Scripted
+# Scripted (nolayers)
 python <skills-root>/abp-multitenancy/scripts/add_multitenant_to_entity.py \
-    --entity-file src/MyProject/Books/Book.cs
+    --entity-file src/MyProject/Entities/Books/Book.cs
+
+# Scripted (layered)
+python <skills-root>/abp-multitenancy/scripts/add_multitenant_to_entity.py \
+    --entity-file src/MyProject.Domain/Books/Book.cs
 ```
 
 The script:

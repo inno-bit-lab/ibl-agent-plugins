@@ -57,7 +57,7 @@ _ABP_CORE_SCRIPTS = str(Path(__file__).resolve().parents[2] / "abp-core" / "scri
 if _ABP_CORE_SCRIPTS not in sys.path:
     sys.path.insert(0, _ABP_CORE_SCRIPTS)
 
-from abp_context import load_or_prompt_config  # noqa: E402
+from abp_context import load_or_prompt_config, resolve_artifact  # noqa: E402
 
 
 @dataclass
@@ -66,40 +66,46 @@ class Finding:
     message: str
 
 
-def _entity_files(project_dir: Path, entity: str, plural: str) -> list[Path]:
+def _feature_artifacts(ctx, base: Path, entity: str, plural: str):
+    """Resolve the per-template (filename, absolute path, expected namespace) of
+    every file scaffold_entity.py produces. The same call works for nolayers
+    (one project) and layered (files fan out across projects) because the
+    locations come from abp_context.resolve_artifact()."""
+    def _loc(kind: str):
+        return resolve_artifact(ctx, kind, plural)
+
+    spec = [
+        ("entity",               f"{entity}.cs",                _loc("entity")),
+        ("dto",                  f"{entity}Dto.cs",             _loc("dto")),
+        ("create_update_dto",    f"CreateUpdate{entity}Dto.cs", _loc("dto")),
+        ("get_input",            f"Get{plural}Input.cs",        _loc("dto")),
+        ("appservice_interface", f"I{entity}AppService.cs",     _loc("appservice_interface")),
+        ("appservice_impl",      f"{entity}AppService.cs",      _loc("appservice_impl")),
+    ]
     return [
-        project_dir / "Entities" / plural / f"{entity}.cs",
-        project_dir / "Services" / "Dtos" / plural / f"{entity}Dto.cs",
-        project_dir / "Services" / "Dtos" / plural / f"CreateUpdate{entity}Dto.cs",
-        project_dir / "Services" / "Dtos" / plural / f"Get{plural}Input.cs",
-        project_dir / "Services" / plural / f"I{entity}AppService.cs",
-        project_dir / "Services" / plural / f"{entity}AppService.cs",
+        (kind, filename, base / loc.dir / filename, loc.namespace)
+        for kind, filename, loc in spec
     ]
 
 
-def _check_files_exist(project_dir: Path, entity: str, plural: str) -> list[Finding]:
+def _check_files_exist(ctx, base: Path, entity: str, plural: str) -> list[Finding]:
     findings: list[Finding] = []
-    for path in _entity_files(project_dir, entity, plural):
+    for _kind, _fn, path, _ns in _feature_artifacts(ctx, base, entity, plural):
+        rel = path.relative_to(base) if base in path.parents else path
         if path.is_file():
-            findings.append(Finding("OK", f"exists: {path.relative_to(project_dir)}"))
+            findings.append(Finding("OK", f"exists: {rel}"))
         else:
-            findings.append(Finding("FAIL", f"missing: {path.relative_to(project_dir)}"))
+            findings.append(Finding("FAIL", f"missing: {rel}"))
     return findings
 
 
-def _check_namespaces(project_dir: Path, entity: str, plural: str,
-                      root_ns: str) -> list[Finding]:
+def _check_namespaces(ctx, base: Path, entity: str, plural: str) -> list[Finding]:
     findings: list[Finding] = []
-    expected = {
-        project_dir / "Entities" / plural / f"{entity}.cs":
-            f"{root_ns}.Entities.{plural}",
-        project_dir / "Services" / "Dtos" / plural / f"{entity}Dto.cs":
-            f"{root_ns}.Services.Dtos.{plural}",
-        project_dir / "Services" / plural / f"{entity}AppService.cs":
-            f"{root_ns}.Services.{plural}",
-    }
-    for path, ns in expected.items():
-        if not path.is_file():
+    # Verify the namespace of the three load-bearing files (entity, output DTO,
+    # AppService impl). The resolver supplies the expected value per template.
+    interesting = {"entity", "dto", "appservice_impl"}
+    for kind, _fn, path, ns in _feature_artifacts(ctx, base, entity, plural):
+        if kind not in interesting or not path.is_file():
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if re.search(rf"namespace\s+{re.escape(ns)}\s*;", text):
@@ -196,24 +202,23 @@ def _check_localization(sln_root: Path, plural: str, root_ns: str) -> list[Findi
     return findings
 
 
-def _entity_has_enum(project_dir: Path, entity: str, plural: str) -> bool:
-    """Returns True if the entity file references at least one enum property.
+def _entity_has_enum(ctx, base: Path, entity: str, plural: str) -> bool:
+    """Returns True if the entity references at least one of its declared enums.
 
-    Heuristic: any property typed against a sibling `{entity}*` enum
-    (e.g. CustomerStatus, OrderType) inside Entities/{plural}/.
+    The enum files live next to the entity in nolayers but in Domain.Shared in
+    layered, so we resolve both locations rather than assuming siblings.
     """
-    folder = project_dir / "Entities" / plural
-    if not folder.is_dir():
-        return False
-    sibling_enums: set[str] = set()
-    for cs in folder.glob("*.cs"):
-        text = cs.read_text(encoding="utf-8", errors="ignore")
-        for m in re.finditer(r"^\s*public\s+enum\s+(\w+)", text, re.MULTILINE):
-            sibling_enums.add(m.group(1))
-    if not sibling_enums:
-        return False
-    entity_file = folder / f"{entity}.cs"
+    entity_file = base / resolve_artifact(ctx, "entity", plural).dir / f"{entity}.cs"
     if not entity_file.is_file():
+        return False
+    enum_dir = base / resolve_artifact(ctx, "enum", plural).dir
+    sibling_enums: set[str] = set()
+    if enum_dir.is_dir():
+        for cs in enum_dir.glob("*.cs"):
+            text = cs.read_text(encoding="utf-8", errors="ignore")
+            for m in re.finditer(r"^\s*public\s+enum\s+(\w+)", text, re.MULTILINE):
+                sibling_enums.add(m.group(1))
+    if not sibling_enums:
         return False
     text = entity_file.read_text(encoding="utf-8", errors="ignore")
     return any(re.search(rf"\b{re.escape(name)}\b", text) for name in sibling_enums)
@@ -263,8 +268,9 @@ def _check_enum_string_setup(sln_root: Path) -> list[Finding]:
     return findings
 
 
-def _check_domain_errors(project_dir: Path, plural: str, root_ns: str) -> list[Finding]:
-    code_file = project_dir / f"{root_ns}DomainErrorCodes.cs"
+def _check_domain_errors(ctx, base: Path, plural: str, root_ns: str) -> list[Finding]:
+    code_file = (base / resolve_artifact(ctx, "error_codes", plural).dir
+                 / f"{root_ns}DomainErrorCodes.cs")
     if not code_file.is_file():
         return [Finding("WARN", f"{root_ns}DomainErrorCodes.cs not found (lifecycle: no)")]
     text = code_file.read_text(encoding="utf-8", errors="ignore")
@@ -334,25 +340,40 @@ def _check_seed_contributor_grants(sln_root: Path, plural: str,
     return findings
 
 
-def _run_build(project_dir: Path) -> list[Finding]:
-    """Run dotnet build with apphost copy disabled (avoids Windows file lock)."""
-    csproj = next(project_dir.glob("*.csproj"), None)
-    if not csproj:
-        return [Finding("WARN", "no *.csproj found — skipping build check")]
+def _run_build(ctx, sln_root: Path, base: Path) -> list[Finding]:
+    """Run dotnet build with apphost copy disabled (avoids Windows file lock).
+
+    Layered solutions span several projects, so building one project compiles
+    too little. We build the whole solution when a solution file is present
+    (covering Domain, Application, MongoDB, ...) and otherwise fall back to the
+    AppService's project (which in nolayers is the single project)."""
+    sln = next(
+        (p for ext in ("*.slnx", "*.sln", "*.abpsln") for p in sln_root.glob(ext)),
+        None,
+    )
+    if sln is not None:
+        build_target = [str(sln)]
+        cwd = sln_root
+    else:
+        proj = base / resolve_artifact(ctx, "appservice_impl", "X").project_dir
+        if not next(proj.glob("*.csproj"), None):
+            return [Finding("WARN", "no solution or *.csproj found — skipping build check")]
+        build_target = []
+        cwd = proj
     try:
         result = subprocess.run(
-            ["dotnet", "build", "--nologo", "-clp:NoSummary",
-             "-p:UseAppHost=false", "-t:Compile"],
-            cwd=project_dir,
+            ["dotnet", "build", *build_target, "--nologo", "-clp:NoSummary",
+             "-p:UseAppHost=false"],
+            cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=300,
             check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         return [Finding("WARN", f"could not run dotnet build: {e}")]
     if result.returncode == 0:
-        return [Finding("OK", "dotnet build (-t:Compile) succeeded")]
+        return [Finding("OK", "dotnet build succeeded")]
     err = (result.stdout or "") + (result.stderr or "")
     # Trim to first 20 lines of error
     short = "\n".join(line for line in err.splitlines() if "error" in line.lower())[:1200]
@@ -381,23 +402,24 @@ def main() -> int:
     plural = args.plural or (entity + "s")
 
     sln_root = Path(ctx.solution_root or os.getcwd())
-    project_dir = sln_root / ctx.project_root
+    # Files are resolved relative to the solution root for both templates.
+    base = sln_root
 
     all_findings: list[Finding] = []
-    all_findings += _check_files_exist(project_dir, entity, plural)
-    all_findings += _check_namespaces(project_dir, entity, plural, ctx.root_namespace)
+    all_findings += _check_files_exist(ctx, base, entity, plural)
+    all_findings += _check_namespaces(ctx, base, entity, plural)
     all_findings += _check_dbcontext(sln_root, entity, plural)
     all_findings += _check_permissions(sln_root, entity, plural, ctx.root_namespace)
     all_findings += _check_mapper(sln_root, entity)
     all_findings += _check_localization(sln_root, plural, ctx.root_namespace)
-    all_findings += _check_domain_errors(project_dir, plural, ctx.root_namespace)
+    all_findings += _check_domain_errors(ctx, base, plural, ctx.root_namespace)
     all_findings += _check_seed_contributor_grants(sln_root, plural, ctx.root_namespace)
 
-    if _entity_has_enum(project_dir, entity, plural):
+    if _entity_has_enum(ctx, base, entity, plural):
         all_findings += _check_enum_string_setup(sln_root)
 
     if not args.no_build:
-        all_findings += _run_build(project_dir)
+        all_findings += _run_build(ctx, sln_root, base)
 
     icons = {"OK": "[OK]  ", "WARN": "[WARN]", "FAIL": "[FAIL]"}
     counts = {"OK": 0, "WARN": 0, "FAIL": 0}

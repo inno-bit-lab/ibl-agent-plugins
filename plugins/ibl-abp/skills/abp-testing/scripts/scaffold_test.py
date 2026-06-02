@@ -32,9 +32,26 @@ _ABP_CORE_SCRIPTS = str(Path(__file__).resolve().parents[2] / "abp-core" / "scri
 if _ABP_CORE_SCRIPTS not in sys.path:
     sys.path.insert(0, _ABP_CORE_SCRIPTS)
 
-from abp_context import AbpContext, load_or_prompt_config, resolve_placeholders  # noqa: E402
+from abp_context import (  # noqa: E402
+    AbpContext,
+    data_layer,
+    load_or_prompt_config,
+    resolve_artifact,
+    resolve_placeholders,
+    test_project_dir,
+)
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+
+
+def _is_layered(ctx: AbpContext) -> bool:
+    return (ctx.template_type or "nolayers") in ("layered", "microservice")
+
+
+def _data_infix(ctx: AbpContext) -> str:
+    """The test-base infix matching the persistence provider: ABP names the
+    bases {Project}MongoDbTestBase / {Project}EntityFrameworkCoreTestBase."""
+    return "MongoDb" if (ctx.data_provider or "mongodb") == "mongodb" else "EntityFrameworkCore"
 
 
 def _prompt(label: str, default: str = "") -> str:
@@ -81,6 +98,38 @@ def _derive_from_interface(path: Path) -> tuple[str, str, set[str]] | None:
     if re.search(r"DeleteByIdsAsync\s*\(|DeleteAllAsync\s*\(", text):
         features.add("bulk")
     return entity, plural, features
+
+
+def _test_usings(ctx: AbpContext, plural: str) -> str:
+    """The `using` lines a test needs to reach the entity, DTOs and AppService
+    interface. Derived from the resolver, so layered (everything in the flat
+    `Root.Plural` namespace → one using) and nolayers (three layer namespaces →
+    three usings) both come out right without branching here."""
+    namespaces: list[str] = []
+    for kind in ("entity", "dto", "appservice_interface"):
+        ns = resolve_artifact(ctx, kind, plural).namespace
+        if ns and ns not in namespaces:
+            namespaces.append(ns)
+    return "\n".join(f"using {ns};" for ns in namespaces)
+
+
+def _detect_test_base_class(ctx: AbpContext, test_dir: Path | None) -> str:
+    """The base class for an AppService integration test.
+
+    nolayers → {Project}ApplicationTestBase (single test project).
+    layered  → the data-provider test base ({Project}MongoDbTestBase), because
+               AppService integration tests need a real persistence provider and
+               live in the *.MongoDB.Tests project. We prefer a base class that
+               actually exists in the test project, falling back to the ABP
+               naming convention."""
+    project = ctx.project_name
+    if not _is_layered(ctx):
+        return f"{project}ApplicationTestBase"
+    infix = _data_infix(ctx)
+    if test_dir and test_dir.is_dir():
+        for cs in test_dir.rglob(f"*{infix}TestBase.cs"):
+            return cs.stem
+    return f"{project}{infix}TestBase"
 
 
 def _detect_multitenancy(sln_root: Path, entity: str) -> bool:
@@ -225,12 +274,19 @@ def main() -> int:
 
     if args.output:
         out_dir = Path(args.output)
+        test_project = out_dir
+    elif _is_layered(ctx):
+        # AppService integration tests need a real persistence provider, so in a
+        # layered solution they live in the *.MongoDB.Tests (or *.EntityFrameworkCore.Tests)
+        # project rather than the abstract *.Application.Tests project.
+        test_project = sln_root / test_project_dir(ctx, "data")
+        out_dir = test_project / plural
     else:
-        test_root = _find_test_project(ctx)
-        if test_root is None:
-            test_root = sln_root / "test"
-            print(f"[warn] Could not locate test project; using {test_root}", file=sys.stderr)
-        out_dir = test_root / plural
+        test_project = _find_test_project(ctx)
+        if test_project is None:
+            test_project = sln_root / "test"
+            print(f"[warn] Could not locate test project; using {test_project}", file=sys.stderr)
+        out_dir = test_project / plural
 
     out_file = out_dir / f"{entity}AppService_Tests.cs"
     if out_file.exists() and not args.force:
@@ -241,10 +297,14 @@ def main() -> int:
     text = resolve_placeholders(template, ctx)
 
     lower = entity[0].lower() + entity[1:]
+    test_base_class = _detect_test_base_class(ctx, test_project)
+    test_usings = _test_usings(ctx, plural)
     text = (text
         .replace("{{ENTITY_NAME}}", entity)
         .replace("{{ENTITY_LOWER}}", lower)
         .replace("{{FEATURE_PLURAL}}", plural)
+        .replace("{{TEST_USINGS}}", test_usings)
+        .replace("{{TEST_BASE_CLASS}}", test_base_class)
         .replace("{{LIFECYCLE_TESTS}}",
                  _lifecycle_tests(entity, lower) if "lifecycle" in include else "")
         .replace("{{MULTITENANCY_TESTS}}",
