@@ -26,14 +26,27 @@ Examples:
         --lifecycle "Status:Prospect->Active,Active->Churned" \
         --bulk-delete no --excel-export no --lookup no --custom-repository no
 
-The output is laid out to match the IBL360 single-project ABP template:
-    {project}/Entities/{Plural}/             entity + enums
-    {project}/Services/Dtos/{Plural}/        DTOs
-    {project}/Services/{Plural}/             AppService + interface
-    {project}/Data/{Plural}/                 custom repository (if requested)
-    {project}/{Project}DomainErrorCodes.cs   error codes (if lifecycle)
-    {project}/Entities/{Plural}/_review_artifacts/
-                                             snippets to merge manually
+The output layout follows the detected solution template (abp_context.py).
+The file→project mapping lives in ONE place — `resolve_artifact()` in
+abp-core/scripts/abp_context.py — so both templates stay in sync.
+
+  Single-project (nolayers / Simple Monolith — e.g. IBL360):
+    {project}/Entities/{Plural}/            entity + enums
+    {project}/Services/Dtos/{Plural}/       DTOs
+    {project}/Services/{Plural}/            AppService + interface
+    {project}/Data/{Plural}/                custom repository (if requested)
+    {project}/{Project}DomainErrorCodes.cs  error codes (if lifecycle)
+
+  Layered (DDD — separate projects, flat `Root.Plural` namespace):
+    {Project}.Domain/{Plural}/                       entity, repo interface
+    {Project}.Domain.Shared/{Plural}/                enums
+    {Project}.Domain.Shared/{Project}DomainErrorCodes.cs
+    {Project}.Application.Contracts/{Plural}/         DTOs + AppService interface
+    {Project}.Application/{Plural}/                   AppService impl
+    {Project}.MongoDB/MongoDb/{Plural}/               custom repository (if requested)
+
+Review snippets (permissions/mapper/localization) are always written next to
+the entity under `_review_artifacts/`, to be merged manually.
 """
 
 from __future__ import annotations
@@ -52,7 +65,11 @@ _ABP_CORE_SCRIPTS = str(Path(__file__).resolve().parents[2] / "abp-core" / "scri
 if _ABP_CORE_SCRIPTS not in sys.path:
     sys.path.insert(0, _ABP_CORE_SCRIPTS)
 
-from abp_context import AbpContext, load_or_prompt_config  # noqa: E402
+from abp_context import (  # noqa: E402
+    AbpContext,
+    load_or_prompt_config,
+    resolve_artifact,
+)
 
 
 # --- Constants -------------------------------------------------------------
@@ -227,9 +244,20 @@ def parse_filters(spec: Optional[str], props: list[Prop],
             if prop and prop.type in enum_names:
                 f.enum_type = prop.type
             else:
-                # Fall back to the filter name being the enum (e.g. "Status" → CustomerStatus)
-                # Caller can resolve by convention if needed
-                f.enum_type = name
+                # The field may be lifecycle-injected (a `Status` enum is added by
+                # --lifecycle, so it isn't in --properties). Resolve the enum type
+                # by name convention against the declared enums — an enum named
+                # {name}, *{name}, or one whose name contains {name}
+                # (e.g. filter "Status" → enum "ProductStatus"). Only if nothing
+                # matches do we fall back to the bare filter name, which would
+                # otherwise emit a non-existent type like `public Status? Status`.
+                match = next(
+                    (e.name for e in enums
+                     if e.name == name or e.name.endswith(name)
+                     or name.lower() in e.name.lower()),
+                    None,
+                )
+                f.enum_type = match or name
         if kind == "numRange":
             prop = next((p for p in props if p.name == name), None)
             if prop:
@@ -1027,8 +1055,54 @@ public class {entity}AppService : ApplicationService, I{entity}AppService
 """
 
 
+def _detect_mongo_context_class(ctx: AbpContext) -> str:
+    """Return the real MongoDbContext class name (e.g. FooMongoDbContext).
+
+    Prefer what's actually in the solution; fall back to the ABP convention
+    ({Root}MongoDbContext for layered, {Root}DbContext for the historical
+    single-project layout)."""
+    sln = Path(ctx.solution_root) if ctx.solution_root else None
+    if sln and sln.is_dir():
+        for cs in sln.rglob("*MongoDbContext.cs"):
+            return cs.stem
+    if (ctx.template_type or "nolayers") in ("layered", "microservice"):
+        return f"{ctx.root_namespace}MongoDbContext"
+    return f"{ctx.root_namespace}DbContext"
+
+
 def cs_custom_repo_interface(entity: str, plural: str, ns: str,
-                             entities_ns: str, dtos_ns: str) -> str:
+                             entities_ns: str, dtos_ns: str,
+                             props: Optional[list[Prop]] = None,
+                             layered: bool = False) -> str:
+    if layered:
+        # Domain-safe signature: the Domain layer must not reference
+        # Application.Contracts, so we expose a primitive `filterText` + paging
+        # contract instead of taking Get{Plural}Input. Structured per-field
+        # filtering stays in the AppService — the ABP-idiomatic site for
+        # application-level filtering in a layered solution.
+        return f"""using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using {entities_ns};
+using Volo.Abp.Domain.Repositories;
+
+namespace {ns};
+
+public interface I{entity}Repository : IRepository<{entity}, Guid>
+{{
+    Task<List<{entity}>> GetListAsync(
+        string? filterText = null,
+        string? sorting = null,
+        int maxResultCount = int.MaxValue,
+        int skipCount = 0,
+        CancellationToken cancellationToken = default);
+
+    Task<long> GetCountAsync(
+        string? filterText = null,
+        CancellationToken cancellationToken = default);
+}}
+"""
     return f"""using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -1058,7 +1132,85 @@ public interface I{entity}Repository : IRepository<{entity}, Guid>
 
 def cs_mongo_repo(entity: str, plural: str, ns: str, entities_ns: str,
                   dtos_ns: str, project_ns: str, props: list[Prop],
-                  filters: list[FilterSpec]) -> str:
+                  filters: list[FilterSpec], layered: bool = False,
+                  context_class: Optional[str] = None,
+                  data_ns: Optional[str] = None) -> str:
+    context_class = context_class or f"{project_ns}DbContext"
+
+    if layered:
+        # Layered impl: matches the Domain-safe interface (filterText + paging).
+        # The MongoDB project references Domain (entity + I{Entity}Repository live
+        # there) but NOT Application.Contracts, so no Get{Plural}Input here.
+        text_fields = [p.name for p in props if p.type == "string"][:3]
+        if text_fields:
+            chain = " ||\n                ".join(
+                f"(c.{fld} != null && c.{fld}.ToLower().Contains(__t))" if any(
+                    p.name == fld and p.nullable for p in props
+                ) else f"c.{fld}.ToLower().Contains(__t)"
+                for fld in text_fields
+            )
+            text_filter = f"""        if (!string.IsNullOrWhiteSpace(filterText))
+        {{
+            var __t = filterText.Trim().ToLowerInvariant();
+            queryable = queryable.Where(c =>
+                {chain});
+        }}"""
+        else:
+            text_filter = "        // No string properties available for text search."
+        default_sort = props[0].name if props else "Id"
+        return f"""using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Dynamic.Core;
+using System.Threading;
+using System.Threading.Tasks;
+using {entities_ns};
+using MongoDB.Driver.Linq;
+using Volo.Abp.Domain.Repositories.MongoDB;
+using Volo.Abp.MongoDB;
+
+namespace {ns};
+
+public class Mongo{entity}Repository :
+    MongoDbRepository<{context_class}, {entity}, Guid>,
+    I{entity}Repository
+{{
+    public Mongo{entity}Repository(IMongoDbContextProvider<{context_class}> provider)
+        : base(provider) {{ }}
+
+    public async Task<List<{entity}>> GetListAsync(
+        string? filterText = null,
+        string? sorting = null,
+        int maxResultCount = int.MaxValue,
+        int skipCount = 0,
+        CancellationToken cancellationToken = default)
+    {{
+        var queryable = await GetQueryableAsync(cancellationToken);
+        queryable = (IMongoQueryable<{entity}>)ApplyFilter(queryable, filterText);
+        queryable = (IMongoQueryable<{entity}>)queryable
+            .OrderBy(sorting.IsNullOrWhiteSpace() ? nameof({entity}.{default_sort}) : sorting!)
+            .Skip(skipCount)
+            .Take(maxResultCount);
+        return await queryable.ToListAsync(GetCancellationToken(cancellationToken));
+    }}
+
+    public async Task<long> GetCountAsync(
+        string? filterText = null,
+        CancellationToken cancellationToken = default)
+    {{
+        var queryable = await GetQueryableAsync(cancellationToken);
+        queryable = (IMongoQueryable<{entity}>)ApplyFilter(queryable, filterText);
+        return await queryable.LongCountAsync(GetCancellationToken(cancellationToken));
+    }}
+
+    protected virtual IQueryable<{entity}> ApplyFilter(IQueryable<{entity}> queryable, string? filterText)
+    {{
+{text_filter}
+        return queryable;
+    }}
+}}
+"""
+
     where_lines: list[str] = []
     for f in filters:
         if f.kind == "text":
@@ -1129,10 +1281,10 @@ using Volo.Abp.MongoDB;
 namespace {ns};
 
 public class Mongo{entity}Repository :
-    MongoDbRepository<{project_ns}DbContext, {entity}, Guid>,
+    MongoDbRepository<{context_class}, {entity}, Guid>,
     I{entity}Repository
 {{
-    public Mongo{entity}Repository(IMongoDbContextProvider<{project_ns}DbContext> provider)
+    public Mongo{entity}Repository(IMongoDbContextProvider<{context_class}> provider)
         : base(provider) {{ }}
 
     public async Task<List<{entity}>> GetListAsync(
@@ -1214,7 +1366,9 @@ def snippet_permissions(root_ns: str, plural: str, multi_tenant: bool) -> str:
 
 def snippet_mapper(entity: str, entities_ns: str, dtos_ns: str) -> str:
     return f"""// =============================================================================
-//  Mapper snippet — append into your central mapper file (e.g. Ibl360Mappers.cs)
+//  Mapper snippet — append into your solution's central Mapperly mapper file:
+//  the `*Mappers.cs` partial in the Application layer (layered: e.g.
+//  {{Project}}ApplicationMappers.cs; single-project: e.g. {{Project}}Mappers.cs).
 // =============================================================================
 
 // 1) Add these usings to the top of the mapper file (if not already there):
@@ -1298,7 +1452,9 @@ def snippet_next_steps(entity: str, plural: str, opts: Options,
     ])
     blocks.append([
         "**Merge mapper snippet** — open `_mapper_snippet.txt` and append into your",
-        "   central mapper file (e.g. `ObjectMapping/Ibl360Mappers.cs`).",
+        "   solution's central `*Mappers.cs` partial in the Application layer",
+        "   (layered: `{Project}.Application/{Project}ApplicationMappers.cs`;",
+        "   single-project: `ObjectMapping/{Project}Mappers.cs`).",
     ])
     blocks.append([
         "**Merge localization keys** — open `_localization_snippet.json` and integrate",
@@ -1347,10 +1503,33 @@ def snippet_next_steps(entity: str, plural: str, opts: Options,
 
 
 # --- File writing helpers --------------------------------------------------
+_NAMESPACE_RE = re.compile(r"^namespace\s+([\w.]+)\s*;", re.MULTILINE)
+
+
+def _strip_self_using(content: str) -> str:
+    """Drop `using N;` lines when the file itself declares `namespace N;`.
+
+    In the layered template entity, DTO, AppService interface and implementation
+    for one aggregate all share the namespace `Root.Plural` (they only differ by
+    physical project). The builders below emit cross-references like
+    `using {entities_ns};` that are correct for nolayers but become a redundant
+    self-import in layered. Rather than special-case every builder, we remove the
+    self-import here. Project references (which actually make the types visible)
+    are already wired by the ABP layered template, so nothing else is needed."""
+    m = _NAMESPACE_RE.search(content)
+    if not m:
+        return content
+    own = m.group(1)
+    lines = [ln for ln in content.splitlines() if ln.strip() != f"using {own};"]
+    return "\n".join(lines) + ("\n" if content.endswith("\n") else "")
+
+
 def _write(path: Path, content: str, force: bool) -> bool:
     if path.exists() and not force:
         print(f"[skip] {path} (use --force to overwrite)")
         return False
+    if path.suffix == ".cs":
+        content = _strip_self_using(content)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     print(f"[write] {path}")
@@ -1378,17 +1557,35 @@ def scaffold(ctx: AbpContext, entity: str, plural: str,
     root_ns = ctx.root_namespace
     project_ns = root_ns
     sln_root = Path(ctx.solution_root or os.getcwd())
-    project_dir = output_root or (sln_root / ctx.project_root)
+    # `base` is the root onto which each artifact's solution-relative directory
+    # is appended. Normally the solution root; --output redirects the whole tree
+    # elsewhere (tests / dry-runs) while preserving the per-layer layout.
+    base = Path(output_root) if output_root else sln_root
 
-    entities_ns = f"{root_ns}.Entities.{plural}"
-    services_ns = f"{root_ns}.Services.{plural}"
-    dtos_ns = f"{root_ns}.Services.Dtos.{plural}"
-    data_ns = f"{root_ns}.Data.{plural}"
+    def _loc(kind: str):
+        return resolve_artifact(ctx, kind, plural)
 
-    entities_dir = project_dir / "Entities" / plural
-    services_dir = project_dir / "Services" / plural
-    dtos_dir = project_dir / "Services" / "Dtos" / plural
-    data_dir = project_dir / "Data" / plural
+    # Namespaces. In layered, entity/enum/dto/interface/impl all collapse onto
+    # `Root.Plural`; in nolayers each carries its layer segment. The resolver
+    # encodes both, so the builders just receive the right strings.
+    entities_ns = _loc("entity").namespace
+    enums_ns = _loc("enum").namespace
+    dtos_ns = _loc("dto").namespace
+    iface_ns = _loc("appservice_interface").namespace
+    services_ns = _loc("appservice_impl").namespace
+    data_ns = _loc("repo_interface").namespace      # custom repo interface (Domain)
+    repo_impl_ns = _loc("repo_impl").namespace      # custom repo impl (data layer)
+
+    # Directories — one per artifact, each rooted under `base`. In nolayers they
+    # all sit inside the single project; in layered they fan out across projects.
+    entities_dir = base / _loc("entity").dir
+    enums_dir = base / _loc("enum").dir
+    dtos_dir = base / _loc("dto").dir
+    iface_dir = base / _loc("appservice_interface").dir
+    services_dir = base / _loc("appservice_impl").dir
+    data_dir = base / _loc("repo_interface").dir
+    repo_impl_dir = base / _loc("repo_impl").dir
+    error_codes_dir = base / _loc("error_codes").dir
     review_dir = entities_dir / "_review_artifacts"
 
     # 1) Entity
@@ -1396,14 +1593,15 @@ def scaffold(ctx: AbpContext, entity: str, plural: str,
            cs_entity(entity, plural, entities_ns, root_ns, props, enums, opts, lifecycle),
            force)
 
-    # 2) Enums (one file per enum)
+    # 2) Enums (one file per enum). In layered these land in Domain.Shared so the
+    #    Application.Contracts DTOs can reference them without pulling in Domain.
     for e in enums:
-        _write(entities_dir / f"{e.name}.cs", cs_enum(e, entities_ns), force)
+        _write(enums_dir / f"{e.name}.cs", cs_enum(e, enums_ns), force)
 
     # 3) Domain error codes (only if lifecycle, only if file doesn't already
     # have the namespace block — caller can merge manually)
     if lifecycle:
-        code_file = project_dir / f"{root_ns}DomainErrorCodes.cs"
+        code_file = error_codes_dir / f"{root_ns}DomainErrorCodes.cs"
         if not code_file.exists():
             _write(code_file,
                    cs_domain_error_codes(root_ns, plural, ["InvalidStatusTransition"]),
@@ -1436,12 +1634,14 @@ def scaffold(ctx: AbpContext, entity: str, plural: str,
     if opts.excel_export:
         _write(dtos_dir / f"{entity}ExcelDto.cs",
                cs_excel_dto(entity, dtos_ns, props), force)
-        # The shared DownloadTokenResultDto — only write if not present
-        shared_dir = project_dir / "Services" / "Dtos" / "Shared"
-        shared = shared_dir / "DownloadTokenResultDto.cs"
+        # The shared DownloadTokenResultDto — only write if not present. Lives in
+        # the same contracts layer as the other DTOs (resolved with a "Shared"
+        # aggregate name).
+        shared_loc = resolve_artifact(ctx, "dto", "Shared")
+        shared = base / shared_loc.dir / "DownloadTokenResultDto.cs"
         if not shared.exists():
             _write(shared,
-                   f"""namespace {root_ns}.Services.Dtos.Shared;
+                   f"""namespace {shared_loc.namespace};
 
 public class DownloadTokenResultDto
 {{
@@ -1449,24 +1649,32 @@ public class DownloadTokenResultDto
 }}
 """, True)
 
-    # 5) AppService + interface
+    # 5) AppService interface (Application.Contracts in layered) + implementation
+    #    (Application in layered). In nolayers both land in Services/{Plural}.
     if not opts.no_app_service:
-        _write(services_dir / f"I{entity}AppService.cs",
-               cs_app_service_interface(entity, plural, services_ns, dtos_ns, opts, lifecycle),
+        _write(iface_dir / f"I{entity}AppService.cs",
+               cs_app_service_interface(entity, plural, iface_ns, dtos_ns, opts, lifecycle),
                force)
         _write(services_dir / f"{entity}AppService.cs",
                cs_app_service(entity, plural, root_ns, project_ns, services_ns,
                               dtos_ns, entities_ns, props, filters, opts, lifecycle),
                force)
 
-    # 6) Custom repository
+    # 6) Custom repository — interface in Domain, implementation in the data
+    #    layer. In layered the Domain interface must not depend on
+    #    Application.Contracts, so its layered variant takes primitive filter
+    #    parameters instead of the Get{Plural}Input DTO.
     if opts.custom_repository:
+        layered = (ctx.template_type or "nolayers") in ("layered", "microservice")
+        context_class = _detect_mongo_context_class(ctx)
         _write(data_dir / f"I{entity}Repository.cs",
-               cs_custom_repo_interface(entity, plural, data_ns, entities_ns, dtos_ns),
+               cs_custom_repo_interface(entity, plural, data_ns, entities_ns,
+                                        dtos_ns, props, layered),
                force)
-        _write(data_dir / f"Mongo{entity}Repository.cs",
-               cs_mongo_repo(entity, plural, data_ns, entities_ns, dtos_ns,
-                             project_ns, props, filters),
+        _write(repo_impl_dir / f"Mongo{entity}Repository.cs",
+               cs_mongo_repo(entity, plural, repo_impl_ns, entities_ns, dtos_ns,
+                             project_ns, props, filters, layered,
+                             context_class, data_ns),
                force)
 
     # 7) Review artifacts (snippets)
@@ -1482,7 +1690,7 @@ public class DownloadTokenResultDto
            True)
 
     print()
-    print(f"[OK] Scaffolded {entity} feature in {project_dir}")
+    print(f"[OK] Scaffolded {entity} feature ({ctx.template_type}) under {base}")
     print(f"     See {review_dir / '_next_steps.md'} for the finalization checklist.")
     return 0
 
@@ -1552,13 +1760,18 @@ def main() -> int:
             except OSError:
                 continue
 
-    # Auto-custom-repo: yes if >3 filters
+    # Auto-custom-repo: in nolayers, default to yes when there are many filters
+    # (>3) — the single project can host the filter chain freely. In layered,
+    # default to NO: the ABP-idiomatic approach keeps application-level filtering
+    # in the AppService, and a Domain repository must stay free of
+    # Application.Contracts types. Pass --custom-repository yes to force it.
+    layered_tt = (ctx.template_type or "nolayers") in ("layered", "microservice")
     if args.custom_repository == "yes":
         custom_repo = True
     elif args.custom_repository == "no":
         custom_repo = False
     else:
-        custom_repo = len(filters) > 3
+        custom_repo = (not layered_tt) and len(filters) > 3
 
     opts = Options(
         audit=args.audit,

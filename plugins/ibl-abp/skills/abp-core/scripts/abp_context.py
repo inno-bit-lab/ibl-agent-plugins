@@ -241,6 +241,200 @@ def load_or_prompt_config(project_root: Optional[str] = None) -> AbpContext:
     return ctx
 
 
+# =============================================================================
+#  Layer / artifact resolution — the heart of dual-template support
+# =============================================================================
+#
+# ABP ships several solution templates that lay the same code out differently:
+#
+#   * nolayers (a.k.a. "single-layer" / Simple Monolith / the IBL360 template):
+#       ONE project. The layer a class belongs to is expressed by a *folder*
+#       and baked into the *namespace* — e.g. an entity lives in
+#       `Entities/Books/Book.cs` with namespace `Root.Entities.Books`, a DTO in
+#       `Services/Dtos/Books/` with namespace `Root.Services.Dtos.Books`.
+#
+#   * layered (the DDD template — what IBLTermocasa uses):
+#       SEPARATE projects (`*.Domain`, `*.Domain.Shared`, `*.Application`,
+#       `*.Application.Contracts`, `*.MongoDB`/`*.EntityFrameworkCore`, ...).
+#       The layer is expressed by the *physical project*, while the namespace is
+#       FLAT — entity, DTO and AppService for the `Books` aggregate ALL share
+#       namespace `Root.Books`, just living in different projects. Two namespaces
+#       are special-cased because the real templates do so: persistence code is
+#       `Root.MongoDB` / `Root.EntityFrameworkCore` and authorization code is
+#       `Root.Permissions`.
+#
+# Rather than scatter `if template_type == ...` across seven skills, every skill
+# asks THIS module "where does artifact X for aggregate Y go?" and gets back a
+# directory (relative to the solution root) plus a namespace. Get this table
+# right once and the whole toolkit follows.
+#
+# A correctness note that drives the layered table: `Application.Contracts`
+# references `Domain.Shared` but NOT `Domain`. So any enum/constant a DTO needs
+# must live in `Domain.Shared`, never in `Domain` — otherwise the contracts
+# project won't compile. That is why `enum`/`consts` resolve to `domain_shared`
+# in the layered map even though the entity that also uses them lives in
+# `Domain`. (In nolayers everything is one project, so the point is moot and
+# enums sit next to the entity, matching the historical scaffolder output.)
+
+# data_provider -> the persistence project's suffix and inner folder
+_DATA_LAYER = {
+    "mongodb": ("MongoDB", "MongoDb"),          # project suffix, inner folder
+    "efcore": ("EntityFrameworkCore", "EntityFrameworkCore"),
+}
+
+# logical layer -> project-name suffix for the LAYERED/microservice templates.
+# `None` means "resolved dynamically" (data layer) or "the single project" (main).
+_LAYER_SUFFIX = {
+    "domain": "Domain",
+    "domain_shared": "Domain.Shared",
+    "application": "Application",
+    "contracts": "Application.Contracts",
+    "data": None,        # -> _DATA_LAYER[data_provider]
+    "httpapi": "HttpApi",
+    "host": "HttpApi.Host",
+    "main": None,        # -> the single nolayers project (ctx.project_root)
+}
+
+# artifact kind -> (logical layer, subfolder template, namespace template)
+# Templates accept {plural}, {root}, {datadir}, {datans}.
+_ARTIFACT_LAYERED = {
+    "entity":               ("domain",        "{plural}",            "{root}.{plural}"),
+    "enum":                 ("domain_shared", "{plural}",            "{root}.{plural}"),
+    "consts":               ("domain_shared", "{plural}",            "{root}.{plural}"),
+    "error_codes":          ("domain_shared", "",                    "{root}"),
+    "eto":                  ("domain_shared", "{plural}",            "{root}.{plural}"),
+    "repo_interface":       ("domain",        "{plural}",            "{root}.{plural}"),
+    "domain_service":       ("domain",        "{plural}",            "{root}.{plural}"),
+    "data_seed":            ("domain",        "{plural}",            "{root}.{plural}"),
+    "dto":                  ("contracts",     "{plural}",            "{root}.{plural}"),
+    "appservice_interface": ("contracts",     "{plural}",            "{root}.{plural}"),
+    "permissions":          ("contracts",     "Permissions",         "{root}.Permissions"),
+    "appservice_impl":      ("application",   "{plural}",            "{root}.{plural}"),
+    "mapper":               ("application",   "",                    "{root}"),
+    "repo_impl":            ("data",          "{datadir}/{plural}",  "{root}.{datans}"),
+    "data_context":         ("data",          "{datadir}",           "{root}.{datans}"),
+    "localization":         ("domain_shared", "Localization/{root}", ""),
+}
+
+# Historical single-project layout (IBL360). Kept byte-compatible with the
+# pre-existing scaffolder so nolayers output does not regress.
+_ARTIFACT_NOLAYERS = {
+    "entity":               ("main", "Entities/{plural}",      "{root}.Entities.{plural}"),
+    "enum":                 ("main", "Entities/{plural}",      "{root}.Entities.{plural}"),
+    "consts":               ("main", "Entities/{plural}",      "{root}.Entities.{plural}"),
+    "error_codes":          ("main", "",                       "{root}"),
+    "eto":                  ("main", "Entities/{plural}",      "{root}.Entities.{plural}"),
+    "repo_interface":       ("main", "Data/{plural}",          "{root}.Data.{plural}"),
+    "domain_service":       ("main", "Entities/{plural}",      "{root}.Entities.{plural}"),
+    "data_seed":            ("main", "Data",                   "{root}"),
+    "dto":                  ("main", "Services/Dtos/{plural}", "{root}.Services.Dtos.{plural}"),
+    "appservice_interface": ("main", "Services/{plural}",      "{root}.Services.{plural}"),
+    "permissions":          ("main", "Permissions",            "{root}.Permissions"),
+    "appservice_impl":      ("main", "Services/{plural}",      "{root}.Services.{plural}"),
+    "mapper":               ("main", "ObjectMapping",          "{root}"),
+    "repo_impl":            ("main", "Data/{plural}",          "{root}.Data.{plural}"),
+    "data_context":         ("main", "Data",                   "{root}.Data"),
+    "localization":         ("main", "Localization/{root}",    ""),
+}
+
+
+@dataclass
+class ArtifactLocation:
+    """Where one generated artifact belongs, relative to the solution root."""
+    kind: str
+    project_dir: str   # the layer project, e.g. "src/Foo.Domain" (nolayers: the single project)
+    dir: str           # project_dir + subfolder, e.g. "src/Foo.Domain/Books"
+    namespace: str     # the C# namespace, e.g. "Foo.Books"
+
+
+def _src_root(ctx: AbpContext) -> str:
+    """The directory that contains the project folders ("src", or "" for a
+    flat layout). Derived from project_root's parent so it works regardless of
+    whether the solution uses a src/ folder."""
+    pr = (ctx.project_root or "").replace("\\", "/").strip("/")
+    return pr.rsplit("/", 1)[0] if "/" in pr else ""
+
+
+def _is_layered(ctx: AbpContext) -> bool:
+    return (ctx.template_type or "nolayers") in ("layered", "microservice")
+
+
+def data_layer(ctx: AbpContext) -> tuple[str, str]:
+    """(project suffix, inner folder) for the active persistence provider."""
+    return _DATA_LAYER.get(ctx.data_provider or "mongodb", _DATA_LAYER["mongodb"])
+
+
+def layer_project_dir(ctx: AbpContext, layer: str) -> str:
+    """Relative path (from solution root) of the project for a logical layer.
+
+    In nolayers every layer collapses onto the single main project, so callers
+    that use {{DOMAIN_PROJECT}} etc. transparently get the right thing on both
+    templates."""
+    if not _is_layered(ctx) or layer == "main":
+        return (ctx.project_root or ctx.project_name).replace("\\", "/")
+    suffix = data_layer(ctx)[0] if layer == "data" else _LAYER_SUFFIX.get(layer)
+    folder = f"{ctx.project_name}.{suffix}" if suffix else ctx.project_name
+    src = _src_root(ctx)
+    return f"{src}/{folder}" if src else folder
+
+
+def test_project_dir(ctx: AbpContext, layer: str = "application") -> str:
+    """Relative path of a test project. Layered solutions split tests by layer
+    (`*.Application.Tests`, `*.Domain.Tests`, `*.MongoDB.Tests`); nolayers has a
+    single `*.Tests` project. `test_root` is taken as the sibling of src_root."""
+    src = _src_root(ctx)
+    test_root = (src.rsplit("/", 1)[0] + "/test") if "/" in src else "test" if src else ""
+    if not _is_layered(ctx):
+        folder = f"{ctx.project_name}.Tests"
+    elif layer == "data":
+        folder = f"{ctx.project_name}.{data_layer(ctx)[0]}.Tests"
+    else:
+        suffix = _LAYER_SUFFIX.get(layer, "Application")
+        folder = f"{ctx.project_name}.{suffix}.Tests"
+    return f"{test_root}/{folder}" if test_root else folder
+
+
+def resolve_artifact(ctx: AbpContext, kind: str, plural: str = "") -> ArtifactLocation:
+    """Resolve where an artifact of `kind` for the `plural` aggregate belongs.
+
+    `kind` is one of the keys in _ARTIFACT_LAYERED / _ARTIFACT_NOLAYERS, e.g.
+    "entity", "enum", "dto", "appservice_impl", "repo_impl", "permissions".
+    Returns directories relative to the solution root plus the C# namespace.
+    """
+    table = _ARTIFACT_LAYERED if _is_layered(ctx) else _ARTIFACT_NOLAYERS
+    if kind not in table:
+        raise KeyError(
+            f"Unknown artifact kind {kind!r}. "
+            f"Known: {sorted(set(_ARTIFACT_LAYERED) | set(_ARTIFACT_NOLAYERS))}"
+        )
+    layer, sub_t, ns_t = table[kind]
+    root = ctx.root_namespace or ctx.project_name
+    proj_suffix, datadir = data_layer(ctx)
+    fmt = {"plural": plural, "root": root, "datadir": datadir, "datans": proj_suffix}
+
+    project_dir = layer_project_dir(ctx, layer)
+    sub = sub_t.format(**fmt).strip("/")
+    full_dir = f"{project_dir}/{sub}" if sub else project_dir
+    namespace = ns_t.format(**fmt)
+    return ArtifactLocation(
+        kind=kind,
+        project_dir=project_dir.replace("\\", "/"),
+        dir=full_dir.replace("\\", "/"),
+        namespace=namespace,
+    )
+
+
+def layout_summary(ctx: AbpContext, plural: str = "Books") -> dict:
+    """Resolve every artifact kind for a sample aggregate — handy for tests and
+    for showing the user what the active template implies."""
+    kinds = sorted(set(_ARTIFACT_LAYERED) | set(_ARTIFACT_NOLAYERS))
+    return {
+        k: {"dir": loc.dir, "namespace": loc.namespace}
+        for k in kinds
+        for loc in [resolve_artifact(ctx, k, plural)]
+    }
+
+
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Z_]+)\s*\}\}")
 
 
@@ -248,9 +442,14 @@ def resolve_placeholders(text: str, ctx: AbpContext) -> str:
     """
     Replace placeholders of the form {{NAME}} with values from ctx.
 
-    Supported keys:
+    Project-wide keys:
       PROJECT_NAME, ROOT_NAMESPACE, TEMPLATE_TYPE, DATA_PROVIDER,
       PROJECT_ROOT, SOLUTION_ROOT
+
+    Per-layer project keys (collapse onto PROJECT_ROOT in nolayers, so a single
+    template string works on both templates):
+      DOMAIN_PROJECT, DOMAIN_SHARED_PROJECT, APPLICATION_PROJECT,
+      CONTRACTS_PROJECT, DATA_PROJECT, HTTPAPI_PROJECT, HOST_PROJECT
     """
     mapping = {
         "PROJECT_NAME": ctx.project_name,
@@ -259,6 +458,13 @@ def resolve_placeholders(text: str, ctx: AbpContext) -> str:
         "DATA_PROVIDER": ctx.data_provider,
         "PROJECT_ROOT": ctx.project_root,
         "SOLUTION_ROOT": ctx.solution_root,
+        "DOMAIN_PROJECT": layer_project_dir(ctx, "domain"),
+        "DOMAIN_SHARED_PROJECT": layer_project_dir(ctx, "domain_shared"),
+        "APPLICATION_PROJECT": layer_project_dir(ctx, "application"),
+        "CONTRACTS_PROJECT": layer_project_dir(ctx, "contracts"),
+        "DATA_PROJECT": layer_project_dir(ctx, "data"),
+        "HTTPAPI_PROJECT": layer_project_dir(ctx, "httpapi"),
+        "HOST_PROJECT": layer_project_dir(ctx, "host"),
     }
 
     def _sub(m: re.Match) -> str:
@@ -279,11 +485,23 @@ if __name__ == "__main__":
         action="store_true",
         help="Auto-detect only; do not prompt for missing fields",
     )
+    parser.add_argument(
+        "--show-layout",
+        nargs="?",
+        const="Books",
+        default=None,
+        metavar="PLURAL",
+        help="Also print the resolved directory + namespace for every artifact "
+        "kind, using PLURAL as a sample aggregate (default: Books).",
+    )
     args = parser.parse_args()
 
-    if args.no_prompt:
+    if args.no_prompt or args.show_layout is not None:
         ctx = detect_abp_project(args.cwd)
     else:
         ctx = load_or_prompt_config(args.cwd)
 
-    print(json.dumps(ctx.as_dict(), indent=2))
+    out = ctx.as_dict()
+    if args.show_layout is not None:
+        out["layout"] = layout_summary(ctx, args.show_layout)
+    print(json.dumps(out, indent=2))

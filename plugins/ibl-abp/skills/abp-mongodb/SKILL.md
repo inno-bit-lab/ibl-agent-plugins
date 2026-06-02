@@ -40,6 +40,29 @@ Rules:
    runtime; data migrations (renames, splits, computed fields) are explicit
    scripts you write yourself.
 
+## Where the context and repositories live (nolayers vs layered)
+
+ABP lays the same Mongo code out differently per template. Locations and
+namespaces are resolved centrally by `resolve_artifact(ctx, kind, plural)` in
+`abp-core/scripts/abp_context.py` — run `python <skills-root>/abp-core/scripts/abp_context.py --show-layout`
+in the solution to print the exact dir + namespace for every artifact. The
+table below is the summary for the pieces this skill touches:
+
+| Artifact | nolayers (single project / IBL360) | layered (DDD / IBLTermocasa) |
+|---|---|---|
+| `*MongoDbContext` | `{{PROJECT_ROOT}}/Data/`, ns `{{ROOT_NAMESPACE}}.Data` | `{{DATA_PROJECT}}/MongoDb/`, ns `{{ROOT_NAMESPACE}}.MongoDB` |
+| Custom repo **interface** | `{{PROJECT_ROOT}}/Data/{Plural}/`, ns `{{ROOT_NAMESPACE}}.Data.{Plural}` | `{{DOMAIN_PROJECT}}/{Plural}/`, ns `{{ROOT_NAMESPACE}}.{Plural}` |
+| Custom repo **implementation** | `{{PROJECT_ROOT}}/Data/{Plural}/`, ns `{{ROOT_NAMESPACE}}.Data.{Plural}` | `{{DATA_PROJECT}}/MongoDb/{Plural}/`, ns `{{ROOT_NAMESPACE}}.MongoDB` |
+| Index seed contributor | `{{PROJECT_ROOT}}/Data/` | `{{DOMAIN_PROJECT}}/{Plural}/` |
+
+`{{DATA_PROJECT}}` is the `*.MongoDB` project in layered and collapses to
+`{{PROJECT_ROOT}}` in nolayers, so the same placeholder works on both. The
+examples below use the nolayers namespaces (`{{ROOT_NAMESPACE}}MongoDbContext`,
+`{{ROOT_NAMESPACE}}.Data.*`); on layered the context namespace is
+`{{ROOT_NAMESPACE}}.MongoDB` — real example
+`src/IBLTermocasa.MongoDB/MongoDb/IBLTermocasaMongoDbContext.cs` with
+`namespace IBLTermocasa.MongoDB;`.
+
 ## Configuring the DbContext
 
 ```csharp
@@ -85,26 +108,32 @@ must change — in `*Module.cs`:
 4. `options.AddRepository<TEntity, MongoTEntityRepository>();` inside the
    `AddMongoDbContext<>()` call.
 
-The bundled script does all of this idempotently:
+The bundled script does all of this idempotently, and auto-detects the
+template so it finds the right context file and computes the right
+namespace on both layouts:
 
 ```bash
 # Interactive — prompts for missing values
 python <skills-root>/abp-mongodb/scripts/register_entity_in_context.py
 
-# Scripted
+# Scripted — namespace flags are optional; omit them to use the
+# template-correct default from resolve_artifact (Root.Entities.Customers
+# on nolayers, Root.Customers on layered) and let the script find the context.
 python <skills-root>/abp-mongodb/scripts/register_entity_in_context.py \
-    --entity Customer --plural Customers \
-    --entity-namespace MyProject.Entities.Customers \
-    --context-file src/MyProject/Data/MyProjectMongoDbContext.cs
+    --entity Customer --plural Customers
 
-# With custom repository registration
+# With custom repository registration — repo namespace also defaults correctly
+# (Root.Data.Customers on nolayers, Root.MongoDB on layered), so you can drop it too.
 python <skills-root>/abp-mongodb/scripts/register_entity_in_context.py \
     --entity Customer --plural Customers \
-    --entity-namespace MyProject.Entities.Customers \
-    --repository-namespace MyProject.Data.Customers \
     --repository-name MongoCustomerRepository \
     --register-repository
 ```
+
+Pass `--entity-namespace` / `--repository-namespace` only to override the
+resolver (e.g. a non-standard folder). On layered, the entity namespace
+equals the context's own namespace for some aggregates, and the script
+skips a redundant `using` in that case.
 
 The script:
 - Reports `[skip]` for any change already in place — safe to re-run.
@@ -191,6 +220,11 @@ Three patterns, in order of preference for production:
 Runs once at app startup via `migrate-database` / data-seed pipeline. Idempotent
 (`CreateOneAsync` is a no-op when the same index already exists). Centralizes
 all indexes for one entity in one file.
+
+The seed contributor is `data_seed` in the resolver: nolayers → `{{PROJECT_ROOT}}/Data/`;
+layered → the Domain project, `{{DOMAIN_PROJECT}}/{Plural}/`. Either way it injects the
+context via `IMongoDbContextProvider<{{ROOT_NAMESPACE}}MongoDbContext>` (the context type
+is the same; only its namespace differs by template — `.Data` vs `.MongoDB`).
 
 ```csharp
 using System.Threading.Tasks;
@@ -524,9 +558,12 @@ edits in `*MongoDbContext.cs`:
 2. Remove the `modelBuilder.Entity<{Entity}>(b => { ... })` block in
    `CreateModel`
 
-Then delete:
-- `Data/{Entity}IndexInitializer.cs` (if exists)
-- The custom repository (`Data/{Plural}/`) if any
+Then delete (paths per template — `--show-layout` confirms them):
+- The index initializer: nolayers `{{PROJECT_ROOT}}/Data/{Entity}IndexInitializer.cs`,
+  layered `{{DOMAIN_PROJECT}}/{Plural}/{Entity}IndexInitializer.cs` (if it exists)
+- The custom repository: nolayers `{{PROJECT_ROOT}}/Data/{Plural}/`,
+  layered `{{DATA_PROJECT}}/MongoDb/{Plural}/` (if any), plus its interface in
+  the Domain project on layered
 - The `AddRepository<{Entity}, ...>` line in `*Module.cs` if the custom
   repo was registered
 

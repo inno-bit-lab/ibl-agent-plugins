@@ -13,16 +13,30 @@ in the same run.
 
 ## The test project structure
 
-A standard ABP solution has up to three test projects, each with its own
-base class:
+This differs by template. The two ABP templates these skills target are
+**nolayers** (single-project / "Simple Monolith" / IBL360) and **layered**
+(separate Domain / Application / persistence projects).
+
+**nolayers** collapses everything into one `*.Tests` project; AppService tests
+inherit `*ApplicationTestBase`.
+
+**layered** has a separate test project per layer, each with its own base
+class (a MongoDB solution typically ships these three):
 
 | Project | Base class | Use for |
 |---|---|---|
 | `*.Domain.Tests` | `*DomainTestBase` | Pure domain logic, entities, domain services |
-| `*.Application.Tests` | `*ApplicationTestBase` | Application services (most common) |
-| `*.EntityFrameworkCore.Tests` | `*EntityFrameworkCoreTestBase` | Custom repository implementations |
+| `*.Application.Tests` | `*ApplicationTestBase` | Application services with a stubbed/in-memory provider |
+| `*.MongoDB.Tests` | `*MongoDbTestBase` | **AppService integration tests** (and custom repositories) against a real Mongo provider |
 
-Single-layer templates collapse these into a single `*.Tests` project.
+In a **layered + MongoDB** solution, AppService integration tests live in
+`*.MongoDB.Tests` and inherit `*MongoDbTestBase` (e.g.
+`IBLTermocasaMongoDbTestBase`) — *not* `*.Application.Tests`. The reason: an
+AppService exercised end-to-end needs a real persistence provider so that
+collection mapping, MongoDB query translation, and the multi-tenant/soft-delete
+filters actually run. The Application layer alone has no provider, so those
+tests would not cover the data path. `scaffold_test.py` detects the template
+and targets the right project automatically (see below).
 
 ## The standard pattern
 
@@ -52,6 +66,19 @@ public class BookAppService_Tests : {{PROJECT_NAME}}ApplicationTestBase
 }
 ```
 
+The base class and `using` directives depend on the template (the example
+above is nolayers). `scaffold_test.py` fills both automatically; pick them by
+hand only when writing a test outside the scaffolder:
+
+| | Base class | `using` directives for the feature |
+|---|---|---|
+| **nolayers** | `{Project}ApplicationTestBase` | `using Root.Entities.{Plural};`<br>`using Root.Services.Dtos.{Plural};`<br>`using Root.Services.{Plural};` |
+| **layered** | `{Project}MongoDbTestBase` | `using Root.{Plural};` |
+
+In **layered**, the entity, its DTOs, and the AppService interface all share the
+flat `Root.{Plural}` namespace, so a single `using Root.{Plural};` covers all
+three. **nolayers** splits them across three namespaces, hence three usings.
+
 Conventions:
 - **Naming**: `Should_<expected>_When_<condition>` (`Should_Throw_BusinessException_When_Name_Duplicates`). Reads as a sentence in test output.
 - **AAA layout**: Arrange / Act / Assert, separated by blank lines. Skip the comments when the structure is already obvious.
@@ -75,8 +102,12 @@ python <skills-root>/abp-testing/scripts/scaffold_test.py \
     --include lifecycle,multitenancy,bulk
 ```
 
-The script auto-locates the test project (looks for `*ApplicationTestBase.cs`
-under the solution root) and writes:
+The script auto-detects the template (via `resolve_artifact()` in
+`abp-core/scripts/abp_context.py`) and emits the matching test project, base
+class, and usings — the `{{TEST_BASE_CLASS}}` and `{{TEST_USINGS}}` placeholders
+in the template. For **layered** it targets `*.MongoDB.Tests` with
+`*MongoDbTestBase`; for **nolayers** the single `*.Tests` project with
+`*ApplicationTestBase`. It writes:
 
 ```
 {TestProject}/Books/BookAppService_Tests.cs

@@ -25,11 +25,15 @@ python <skills-root>/abp-core/scripts/abp_context.py
 # {
 #   "project_name": "MyProject",
 #   "root_namespace": "MyProject",
-#   "template_type": "nolayers",
+#   "template_type": "layered",       # nolayers | layered | microservice
 #   "data_provider": "mongodb",
-#   "project_root": "src/MyProject",
+#   "project_root": "src/MyProject.Domain",
 #   "solution_root": "C:/path/to/solution"
 # }
+
+# Add --show-layout to see where every artifact kind lands for the detected
+# template (handy when porting a feature into a layered solution):
+python <skills-root>/abp-core/scripts/abp_context.py --show-layout Books
 ```
 
 Other `abp-*` skills import this module:
@@ -37,14 +41,42 @@ Other `abp-*` skills import this module:
 ```python
 import sys, os
 sys.path.insert(0, os.path.expanduser('<skills-root>/abp-core/scripts'))
-from abp_context import load_or_prompt_config, resolve_placeholders
+from abp_context import load_or_prompt_config, resolve_placeholders, resolve_artifact
 
 ctx = load_or_prompt_config()
 code = resolve_placeholders(template_text, ctx)
+
+# Where does a given artifact go? (directory relative to the solution root + namespace)
+loc = resolve_artifact(ctx, "dto", "Books")
+# layered  → loc.dir = "src/MyProject.Application.Contracts/Books", ns "MyProject.Books"
+# nolayers → loc.dir = "src/MyProject/Services/Dtos/Books", ns "MyProject.Services.Dtos.Books"
 ```
 
-Supported placeholders: `{{PROJECT_NAME}}`, `{{ROOT_NAMESPACE}}`,
+### Solution templates (one mapping, two layouts)
+
+The skills support both the **single-project** template (`nolayers` — Simple
+Monolith, the IBL360 layout) and the **layered** DDD template (separate
+`*.Domain`, `*.Domain.Shared`, `*.Application`, `*.Application.Contracts`,
+`*.MongoDB` projects). You never hand-pick paths: `resolve_artifact(ctx, kind,
+plural)` returns the correct directory + namespace for the detected template, so
+the same skill works on both. Artifact kinds: `entity`, `enum`, `consts`,
+`error_codes`, `dto`, `appservice_interface`, `appservice_impl`,
+`repo_interface`, `repo_impl`, `data_context`, `permissions`, `mapper`,
+`data_seed`, `localization`.
+
+The key difference: nolayers bakes the layer into the **namespace**
+(`Root.Entities.Books`, `Root.Services.Books`); layered uses a **flat**
+`Root.Books` namespace across the aggregate and expresses the layer through the
+**physical project** (with `Root.MongoDB` for persistence and `Root.Permissions`
+for authorization as the two special cases).
+
+Project-wide placeholders: `{{PROJECT_NAME}}`, `{{ROOT_NAMESPACE}}`,
 `{{TEMPLATE_TYPE}}`, `{{DATA_PROVIDER}}`, `{{PROJECT_ROOT}}`, `{{SOLUTION_ROOT}}`.
+
+Per-layer project placeholders (each collapses onto `{{PROJECT_ROOT}}` in
+nolayers, so one template string works on both): `{{DOMAIN_PROJECT}}`,
+`{{DOMAIN_SHARED_PROJECT}}`, `{{APPLICATION_PROJECT}}`, `{{CONTRACTS_PROJECT}}`,
+`{{DATA_PROJECT}}`, `{{HTTPAPI_PROJECT}}`, `{{HOST_PROJECT}}`.
 
 ## Module system
 
@@ -223,7 +255,8 @@ code. Codes are easier to grep, easier to localize, and easier to map to
 HTTP status when grouped under a static class:
 
 ```csharp
-// One file at the project root: {{PROJECT_NAME}}DomainErrorCodes.cs
+// One file, namespace {{ROOT_NAMESPACE}}: at the single project's root in
+// nolayers, or in the Domain.Shared project ({{DOMAIN_SHARED_PROJECT}}) in layered.
 namespace {{ROOT_NAMESPACE}};
 
 public static class {{ROOT_NAMESPACE}}DomainErrorCodes

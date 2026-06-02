@@ -50,7 +50,11 @@ Avoid:
 
 ## Naming
 
-Use module-owned namespaces and codes consistently:
+Use module-owned namespaces and codes consistently. The concern-folder shape
+below is the nolayers form; in a layered solution the backend namespace is the
+flat `Root.{Plural}` (e.g. `Ibl360Crm.Customers`), with persistence under
+`Root.MongoDB` and permissions under `Root.Permissions`. Either way the module
+owns the names.
 
 - Backend namespace: `Ibl360Crm.Services.Customers`
 - Permission group: `Ibl360Crm`
