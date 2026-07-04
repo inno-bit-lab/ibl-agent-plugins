@@ -24,6 +24,8 @@ previous_handoff: <path or "none">
 > `suggested_skills[].name` is actually in your available skills; if one is
 > missing, use its `fallback`. Treat this file as a snapshot that may be stale —
 > trust the live repo/tests over this doc when they disagree.
+> If `previous_handoff` names a path, verify that path exists before opening it
+> or searching around it.
 
 # Handoff: <title>
 
@@ -47,6 +49,12 @@ previous_handoff: <path or "none">
 - **Git:** branch `<x>` @ `<sha>`; staged: <...>; unstaged: <...>; stashes: <...>; untracked: <...>
 - **Build / tests:** <status + exact commands + which tests fail and why>
 - **Env / access:** <required vars/creds — present? presence only, never values>
+
+## Agentic strategy
+- **Orchestrator:** <which agent/session owns final review and decisions; do not delegate final verdicts>
+- **Worker lanes:** <agents/subagents in flight, each with disjoint scope and expected artifact>
+- **Tiering principle:** <most capable model for critical/adversarial work; cheaper model only for bounded reports/lint/mechanical checks>
+- **Consolidation point:** <file/PR/comment where worker outputs must be merged and checked>
 
 ## Work in flight  (intent, not diff — see `git diff <base_sha>`)
 - `<path>` — <what was being done, how far it got> [✅/⚠️/❓]
@@ -75,6 +83,13 @@ Fallbacks if a skill is absent (or the next agent is on a host without it): <one
 ## Remaining work  (ordered backlog past the next action)
 - [ ] <next bounded task>
 - [ ] <after that>
+
+## Completeness checklist
+- [ ] Agentic strategy captured, or explicitly not applicable
+- [ ] Traps / risks / gotchas listed, or explicitly none known
+- [ ] Remaining work is ordered and bounded
+- [ ] Previous handoff path checked if provided
+- [ ] Redaction pass completed before saving to the final path
 
 ## Open questions
 - <question + who/what could answer it>

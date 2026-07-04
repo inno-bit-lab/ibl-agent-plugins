@@ -86,6 +86,9 @@ only reused inside one bounded context.
 - **Menu disappeared after modularization:** the React menu likely requires
   `NewModule.*` permissions but the tenant role still has old `HostModule.*`
   grants. Run the data seed/migrator and verify grants in the permission store.
+- **Custom module seeds/permissions never applied:** the standalone
+  `*.DbMigrator` project likely does not `DependsOn` the custom module, so its
+  seed contributors and permission definition providers never load.
 - **UI lost styling:** Tailwind only scans `react/src`; add module React
   folders with `@source "../../../modules/<module>/react/src";`.
 - **CORS errors only in browser:** frontend was opened with `127.0.0.1` while

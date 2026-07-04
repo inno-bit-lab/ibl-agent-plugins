@@ -14,6 +14,12 @@ For framework-wide conventions (DI, base classes, async, etc.) see
 `abp-core`. For the entity/AppService/DTO scaffold see `abp-feature-dev`.
 For modular ownership decisions see `abp-module-architecture`.
 
+Before any audit, migration, seed check, cleanup, or count against MongoDB,
+read `references/local-vs-remote-topology.md`. Declare the authoritative
+database, verify `db.getName()`, fail loudly when the expected connection env
+var is absent, and treat remote/Atlas targets as read-only unless the user
+explicitly authorizes a write.
+
 ## Context selection in modular solutions
 
 If the solution has `modules/`, choose the Mongo context owned by the module
@@ -596,4 +602,6 @@ the `IndexInitializer`; the only cost is the first rebuild scan.
   `mongodb:mongodb-query-optimizer`.
 
 This skill is specifically about the ABP integration layer: contexts,
-repositories, ABP-specific quirks.
+repositories, ABP-specific quirks. For local-vs-remote database authority,
+read-only remote safety, and parameterized mongosh parity/seed/cleanup
+templates, use `references/local-vs-remote-topology.md`.

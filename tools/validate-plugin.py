@@ -22,6 +22,7 @@ PLUGIN_SKILLS = {
         "skill-improvement",
     },
     "ibl-agent-workflow": {
+        "agentic-orchestration",
         "session-handoff",
     },
 }

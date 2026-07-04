@@ -1,6 +1,6 @@
 ---
 name: session-handoff
-description: 'Write a handoff (continuity) document that summarises the current session so a FRESH agent — new context window, no memory of this chat — can pick up the work. Saves the doc to the OS temp directory (never the workspace), redacts secrets and PII, references existing artifacts (PRDs, plans, ADRs, issues, commits, diffs) by path or URL instead of duplicating them, and includes a "Suggested skills" section pointing the next agent at the skills to invoke. Use whenever the user wants to hand off, pause, wrap up, or resume work later — phrases like "write a handoff", "create a handoff doc", "summarise this session for another agent", "I''m running low on context", "document where we are so I can continue tomorrow", "prepare a continuation prompt", or before /clear or context compaction. If the user passes arguments, treat them as what the next session will focus on and tailor the doc to that.'
+description: 'Write a handoff document so a fresh agent can resume the work. Defaults to a redacted, versioned repo handoff under docs/handoff/ when the session should stay with the project; uses the OS temp directory as fallback. References durable artifacts by path or URL, includes suggested skills, and always reports the final path. Use when the user asks to hand off, pause, wrap up, resume later, prepare a continuation prompt, or before context compaction.'
 ---
 
 # Session handoff
@@ -48,18 +48,26 @@ detail; read it when you reach that step.
    python <skill-dir>/scripts/handoff.py redact <draft-path>
    ```
 
-5. **Save to the OS temp directory and report.** Get the target path from the
-   helper (it resolves the OS temp dir cross-platform — `%TEMP%` on Windows,
-   `$TMPDIR`/`/tmp` elsewhere — and creates the folder):
+5. **Choose destination, redact, save, and report.** Prefer a versioned repo
+   path when the handoff should travel with the project:
+
+   ```text
+   docs/handoff/YYYY-MM-DD-<short-topic>-handoff.md
+   ```
+
+   Use this singular directory name: `docs/handoff/`. If the repository should
+   not receive session state, or there is no project repo, fall back to the OS
+   temp directory. The helper resolves the temp dir cross-platform (`%TEMP%` on
+   Windows, `$TMPDIR`/`/tmp` elsewhere) and creates the folder:
 
    ```bash
    python <skill-dir>/scripts/handoff.py path --slug "<short-topic>"
    ```
 
-   Write the doc there, run the redact pass on that file, then tell the user the
-   absolute path. **Never save the handoff into the workspace/repo** — it is
-   ephemeral session state and may contain redacted-but-sensitive context; the
-   temp directory keeps it out of commits.
+   Always redact before leaving the final document in its destination. For a
+   repo path, draft in temp first, run the redact pass, do the contextual PII
+   sweep, then move the redacted file into `docs/handoff/`. Tell the user the
+   final absolute path. Never put unredacted handoff content in the workspace.
 
 ## What goes at the very top
 
@@ -110,3 +118,11 @@ A good handoff passes this test: a fresh agent reading only the frontmatter +
 the next action + the verify block could start working correctly. Everything
 below earns its place by being non-recoverable from the repo. If a section just
 restates what `git diff` or an issue already says, cut it and link instead.
+
+Before saving, check completeness explicitly:
+
+- agentic strategy is captured when agents/subagents/model tiers are in flight
+- traps and risks are listed, or explicitly marked "none known"
+- remaining work is ordered and bounded
+- final path is present in the response
+- redaction ran before writing to a repo path
