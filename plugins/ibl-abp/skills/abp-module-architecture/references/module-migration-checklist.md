@@ -84,8 +84,15 @@ definitions but does not automatically grant them to existing roles.
 Required:
 
 - Seed the new module permissions for default tenant roles.
+- In the standalone `*.DbMigrator` console project, add
+  `[DependsOn(typeof(<CustomModule>Module))]` for every custom module whose
+  `IDataSeedContributor` or `PermissionDefinitionProvider` must run. If the
+  migrator does not depend on the module, its Contracts are not loaded and its
+  seeds/permission grants never execute.
 - Run the migrator/seeder after the move.
-- Verify grants in the permission store.
+- Verify that the module's seed contributor actually ran and that the new
+  permissions exist in the permission store. Do not treat "migrator completed"
+  as proof that the module's grants were created.
 - Refresh/re-login in React so `application-configuration` returns the new
   granted policies.
 

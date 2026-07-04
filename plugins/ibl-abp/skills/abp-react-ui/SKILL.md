@@ -58,6 +58,7 @@ to Shared UI.
 | i18n keys, ABP localization fetch, fallback inline pattern | `references/i18n.md` |
 | Form validation with React Hook Form + Zod | `references/forms.md` |
 | Modifying or deleting an existing UI feature | `references/modify-delete.md` |
+| Runtime visual verification, OIDC auth walls, screenshot fallback | `references/visual-verification.md` |
 
 ## Modular React placement
 
@@ -221,6 +222,11 @@ or stale enums are not yours to fix).
 For modular moves, also run `npm run build`; Vite validates aliases and the
 CSS output size often reveals whether Tailwind picked up module sources.
 
+When a browser/preview is available, follow `references/visual-verification.md`
+before claiming the UI looks correct. Prefer a DOM snapshot or inspectable
+browser state over a raster screenshot; if OIDC blocks the preview, stop
+retrying blind and use the structured offline fallback in that reference.
+
 Tell the user to **hard refresh** (Ctrl+F5) before testing — the React
 app caches the i18n bundle and won't see new keys until invalidated.
 
@@ -229,7 +235,8 @@ app caches the i18n bundle and won't see new keys until invalidated.
 For any entity that took the **dedicated edit page** path (Step 4 B), a
 polish pass is non-negotiable: dialog forms self-correct on small screens
 because the modal is full-bleed on mobile, but a multi-tab form has many
-more places to break. Invoke the `impeccable` skill scoped to the new
+more places to break. First use `references/visual-verification.md` to choose
+the best runtime evidence available, then invoke the `impeccable` skill scoped to the new
 files:
 
 ```

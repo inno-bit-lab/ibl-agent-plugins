@@ -1,7 +1,7 @@
 {
   "name": "ibl-agent-workflow",
-  "version": "0.2.0",
-  "description": "IBL cross-agent workflow skills: write a session-handoff document so a fresh agent can continue the work.",
+  "version": "0.3.0",
+  "description": "IBL cross-agent workflow skills for session handoff, continuity, and agentic orchestration.",
   "author": {
     "name": "IBL"
   },
@@ -16,8 +16,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "IBL Agent Workflow",
-    "shortDescription": "Session-handoff and continuity skills for IBL agents.",
-    "longDescription": "IBL Agent Workflow packages reusable, host-agnostic skills for moving work between agent sessions. The session-handoff skill writes a redacted continuity document to the OS temp directory so a fresh agent can resume without re-deriving context.",
+    "shortDescription": "Session handoff and orchestration skills for IBL agents.",
+    "longDescription": "IBL Agent Workflow packages reusable, host-agnostic skills for moving work between agent sessions and coordinating multi-agent execution.",
     "developerName": "IBL",
     "category": "Productivity",
     "capabilities": [
@@ -26,8 +26,8 @@
     ],
     "defaultPrompt": [
       "Write a handoff document so a fresh agent can continue this work.",
-      "Summarise this session and save a handoff to my temp directory.",
-      "Prepare a continuation doc with suggested skills for the next agent."
+      "Summarise this session and save a handoff document.",
+      "Plan an agentic orchestration strategy for this work."
     ]
   }
 }

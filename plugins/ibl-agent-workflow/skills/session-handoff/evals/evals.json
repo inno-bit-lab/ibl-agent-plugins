@@ -8,7 +8,7 @@
       "input": "C:\\Users\\Innotech\\.claude\\projects\\D--english-call-coach\\5ce6f6b2-caba-4457-966e-ce5fcbf0c7cc.jsonl",
       "assertions": [
         {"text": "Handled the ~8MB session file without dumping it raw into context (used the skill's digest step or otherwise condensed it)", "kind": "process"},
-        {"text": "The handoff was saved to the OS temp directory (a path under the system temp dir), not into the workspace/repo", "kind": "behavior"},
+        {"text": "The handoff was saved to an explicit final path: defaulting to docs/handoff/ for a durable project handoff or to the OS temp directory when repo persistence is not appropriate", "kind": "behavior"},
         {"text": "Document starts with YAML frontmatter including doc_type: session-handoff and a non-empty next_action field", "kind": "structure"},
         {"text": "A concrete, imperative 'Next action' appears near the top naming a specific file/command — not a vague 'continue the work'", "kind": "quality"},
         {"text": "Contains a 'Verify first' startup block telling the next agent to run git status / build / tests and reconcile before trusting the doc", "kind": "structure"},

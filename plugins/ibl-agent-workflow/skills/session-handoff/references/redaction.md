@@ -47,6 +47,7 @@ random strings near a credential-ish name). You can't verify a key is live, so
    nothing; a leaked live key costs everything.
 4. **Don't over-redact ordinary identifiers.** Keep code, file paths,
    function/variable names, hostnames, public URLs, ticket IDs, commit SHAs,
+   branch names, session ids, `author_session` values, slug identifiers,
    table/column names, **env var NAMES**, and the author's own attribution
    email. The bar: *could this single doc, leaked, harm or identify a private
    third party?* — not "is this technically personal data?".
