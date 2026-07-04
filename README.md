@@ -175,6 +175,7 @@ Installazione da marketplace GitHub:
 codex plugin marketplace add inno-bit-lab/ibl-agent-plugins --ref main
 codex plugin add ibl-abp@ibl-agent-plugins
 codex plugin add ibl-skill-improvement@ibl-agent-plugins
+codex plugin add ibl-agent-workflow@ibl-agent-plugins
 ```
 
 Aggiornamento:
@@ -183,6 +184,7 @@ Aggiornamento:
 codex plugin marketplace upgrade
 codex plugin add ibl-abp@ibl-agent-plugins
 codex plugin add ibl-skill-improvement@ibl-agent-plugins
+codex plugin add ibl-agent-workflow@ibl-agent-plugins
 ```
 
 Disinstallazione:
@@ -190,6 +192,7 @@ Disinstallazione:
 ```powershell
 codex plugin remove ibl-abp@ibl-agent-plugins
 codex plugin remove ibl-skill-improvement@ibl-agent-plugins
+codex plugin remove ibl-agent-workflow@ibl-agent-plugins
 codex plugin marketplace remove ibl-agent-plugins
 ```
 
@@ -198,6 +201,7 @@ Installazione locale dal checkout, utile per sviluppo:
 ```powershell
 python tools/install-plugin.py codex --plugin ibl-abp --scope workspace
 python tools/install-plugin.py codex --plugin ibl-skill-improvement --scope workspace
+python tools/install-plugin.py codex --plugin ibl-agent-workflow --scope workspace
 ```
 
 ### Claude Code
