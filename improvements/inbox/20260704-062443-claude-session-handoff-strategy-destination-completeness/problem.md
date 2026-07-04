@@ -55,5 +55,7 @@ invocation, plus three smaller ones.
     detail level requested manually (repeated in `28e17dc7`).
 - Files involved: `assets/handoff-template.md`, `SKILL.md` (step 5 + description),
   `references/redaction.md`.
-- Full verified analysis: `reflection-notes.md` candidate #8 (6 sessions, ~10
-  friction events; the "resume failed" claim was rejected as a cross-project mix-up).
+- Verified analysis (self-contained): `attachments/verified-analysis.md`.
+  Adversarial verification confirmed 6 sessions / ~10 friction events across
+  Ibl360, Notarius, CDXCALL/Sonar; the "resume failed" claim was rejected as a
+  cross-project path mix-up.

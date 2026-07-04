@@ -13,6 +13,12 @@
 python tools/validate-plugin.py
 ```
 
+## Artifact structure
+
+`improvement_inbox.py validate improvements/inbox/<this-artifact>` → `[OK]` (2026-07-04);
+`python tools/validate-plugin.py` runs green on the unmodified tree.
+
 ## Result
 
-Pending — proposal only (Capture Mode). Not applied to canonical skill.
+Canonical-patch validation is Pending — this is a proposal only (Capture Mode),
+not applied to the canonical skill.

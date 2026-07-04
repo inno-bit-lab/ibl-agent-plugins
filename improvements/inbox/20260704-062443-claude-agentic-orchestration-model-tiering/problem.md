@@ -39,7 +39,9 @@ re-injected each session.
   fixers), `DAPP ad757128` (57 repos), `Ibl360-wt b7117dd6` (~12 SDD cycles).
 - Uncaught failures: `Termocasa 80a24f77` (zero files, found via git status);
   `Notarius 657010fc` (orphan tasks cross-session).
-- Full verified analysis: `reflection-notes.md` candidate #2 (26/27 sessions confirmed).
+- Verified analysis (self-contained): `attachments/verified-analysis.md`.
+  Adversarial verification confirmed 26 of 27 cited sessions across ~10 projects
+  (the broadest pattern in the corpus).
 
 ## Claims the verification REJECTED — do NOT encode
 

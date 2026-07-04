@@ -44,7 +44,9 @@ OpenCode.
   riprovo" (reused twice).
 - `Termocasa-react c2a2463d` — structured offline fallback (adversarial review +
   contract + i18n).
-- Full verified analysis: `reflection-notes.md` candidate #6.
+- Verified analysis (self-contained): `attachments/verified-analysis.md`.
+  Adversarial verification confirmed 7 sessions (4 strong), ~20-25 point events,
+  concentrated on Termocasa (6/7).
 
 ## Claims the verification REJECTED — do NOT encode
 

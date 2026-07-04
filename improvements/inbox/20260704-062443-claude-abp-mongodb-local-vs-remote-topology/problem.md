@@ -39,5 +39,7 @@ guidance in the skill today.
   "TCP_REACT_MONGO_CONNECTION_STRING non è presente nel mio ambiente".
 - `Termocasa-react a99e5347`, `1a1d1d4b`, `ef0234e1` — parity/seed/cleanup mongosh
   rewritten by hand repeatedly.
-- Full verified analysis: `reflection-notes.md` candidate #7 (Mongo topology part;
-  the scaffold/permission sub-parts were confirmed already fixed upstream in PR #5).
+- Verified analysis (self-contained): `attachments/verified-analysis.md`.
+  The Mongo-topology gap is confirmed real (grep: zero "mongosh" in the skill);
+  the scaffold/permission sub-parts of the broader candidate were verified already
+  fixed upstream in PR #5 and are out of scope here.

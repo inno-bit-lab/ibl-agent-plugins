@@ -31,4 +31,5 @@ DbMigrator project itself must depend on the custom module. `grep` confirms
 - `Termocasa-react 1a1d1d4b` — "il DbMigrator non carica i moduli custom" →
   commit "fix(seed): DbMigrator carica i Contracts dei moduli custom"; the
   mongosh seed verification was rewritten by hand 4-5 times in the same session.
-- Full verified analysis: `reflection-notes.md` candidate #7 (DbMigrator part).
+- Verified analysis (self-contained): `attachments/verified-analysis.md`.
+  The DbMigrator gap is confirmed real (grep: zero "DbMigrator" in plugins/).
