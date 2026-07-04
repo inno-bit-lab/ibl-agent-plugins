@@ -212,6 +212,7 @@ Installazione da marketplace GitHub:
 claude plugin marketplace add inno-bit-lab/ibl-agent-plugins
 claude plugin install ibl-abp@ibl-agent-plugins
 claude plugin install ibl-skill-improvement@ibl-agent-plugins
+claude plugin install ibl-agent-workflow@ibl-agent-plugins
 ```
 
 Aggiornamento:
@@ -220,6 +221,7 @@ Aggiornamento:
 claude plugin marketplace update ibl-agent-plugins
 claude plugin update ibl-abp@ibl-agent-plugins
 claude plugin update ibl-skill-improvement@ibl-agent-plugins
+claude plugin update ibl-agent-workflow@ibl-agent-plugins
 ```
 
 Disinstallazione:
@@ -227,6 +229,7 @@ Disinstallazione:
 ```powershell
 claude plugin uninstall ibl-abp@ibl-agent-plugins -y
 claude plugin uninstall ibl-skill-improvement@ibl-agent-plugins -y
+claude plugin uninstall ibl-agent-workflow@ibl-agent-plugins -y
 claude plugin marketplace remove ibl-agent-plugins
 ```
 
@@ -235,6 +238,7 @@ Installazione locale dal checkout, utile per sviluppo:
 ```powershell
 python tools/install-plugin.py claude --plugin ibl-abp --scope workspace
 python tools/install-plugin.py claude --plugin ibl-skill-improvement --scope workspace
+python tools/install-plugin.py claude --plugin ibl-agent-workflow --scope workspace
 ```
 
 ### Antigravity 2.0
